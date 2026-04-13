@@ -6,6 +6,7 @@ data class ChangeConfig(
     val name: String,
     val status: String = "active",
     val depends: List<String> = emptyList(),
+    val verify: String = "",
 ) {
     companion object {
         fun parse(file: File): ChangeConfig? {
@@ -17,19 +18,19 @@ data class ChangeConfig(
                 name = name,
                 status = scalars["status"] ?: "active",
                 depends = parseDepends(lines, scalars["depends"]),
+                verify = scalars["verify"] ?: "",
             )
         }
 
         internal fun parseScalars(lines: List<String>): Map<String, String> {
             val result = mutableMapOf<String, String>()
             lines
-                .map { it.trim() }
-                .filter { it.isNotEmpty() && !it.startsWith("#") }
+                .filter { it.isNotEmpty() && !it.startsWith("#") && !it.startsWith(" ") && !it.startsWith("\t") }
                 .filter { it.contains(':') }
-                .forEach { trimmed ->
-                    val colonIndex = trimmed.indexOf(':')
-                    val key = trimmed.substring(0, colonIndex).trim()
-                    val value = trimmed.substring(colonIndex + 1).trim()
+                .forEach { line ->
+                    val colonIndex = line.indexOf(':')
+                    val key = line.substring(0, colonIndex).trim()
+                    val value = line.substring(colonIndex + 1).trim()
                     if (value.isNotEmpty()) result[key] = value
                 }
             return result
@@ -51,6 +52,47 @@ data class ChangeConfig(
                 .drop(dependsIndex + 1)
                 .takeWhile { it.startsWith("- ") }
                 .map { it.removePrefix("- ").trim() }
+        }
+
+        fun write(
+            file: File,
+            config: ChangeConfig,
+        ) {
+            val sb = StringBuilder()
+            sb.appendLine("name: ${config.name}")
+            sb.appendLine("status: ${config.status}")
+            if (config.verify.isNotEmpty()) {
+                sb.appendLine("verify: ${config.verify}")
+            }
+            if (config.depends.isNotEmpty()) {
+                sb.appendLine("depends: [${config.depends.joinToString(", ")}]")
+            }
+            file.writeText(sb.toString())
+        }
+
+        fun updateStatus(
+            file: File,
+            newStatus: String,
+        ) {
+            if (!file.exists()) {
+                file.writeText("status: $newStatus\n")
+                return
+            }
+            val lines = file.readLines()
+            val updated = mutableListOf<String>()
+            var statusFound = false
+            for (line in lines) {
+                if (!statusFound && line.startsWith("status:")) {
+                    updated.add("status: $newStatus")
+                    statusFound = true
+                } else {
+                    updated.add(line)
+                }
+            }
+            if (!statusFound) {
+                updated.add("status: $newStatus")
+            }
+            file.writeText(updated.joinToString("\n") + "\n")
         }
 
         internal fun parseBracketList(value: String): List<String> {

@@ -1,0 +1,74 @@
+package zone.clanker.opsx.workflow
+
+import zone.clanker.opsx.Opsx
+import zone.clanker.opsx.model.ChangeConfig
+import zone.clanker.opsx.model.ChangeStatus
+import java.io.File
+
+class ChangeWriter(
+    private val rootDir: File,
+    private val extension: Opsx.SettingsExtension,
+) {
+    fun createChangeDir(changeName: String): File {
+        val changesDir = File(rootDir, "${extension.outputDir}/${extension.changesDir}")
+        val changeDir = File(changesDir, changeName)
+        changeDir.mkdirs()
+        return changeDir
+    }
+
+    fun writeConfig(
+        changeDir: File,
+        changeName: String,
+        status: ChangeStatus,
+    ) {
+        val config = ChangeConfig(name = changeName, status = status.value)
+        ChangeConfig.write(File(changeDir, ".opsx.yaml"), config)
+    }
+
+    fun writeProposal(
+        changeDir: File,
+        content: String,
+    ) {
+        File(changeDir, "proposal.md").writeText(content)
+    }
+
+    fun writeDesignSkeleton(
+        changeDir: File,
+        changeName: String,
+    ) {
+        val file = File(changeDir, "design.md")
+        if (!file.exists()) {
+            file.writeText("# Design: $changeName\n\n<!-- Fill in the design details -->\n")
+        }
+    }
+
+    fun writeTasksSkeleton(
+        changeDir: File,
+        changeName: String,
+    ) {
+        val file = File(changeDir, "tasks.md")
+        if (!file.exists()) {
+            file.writeText("# Tasks: $changeName\n\n- [ ] TODO\n")
+        }
+    }
+
+    fun updateStatus(
+        changeDir: File,
+        status: ChangeStatus,
+    ) {
+        val configFile = File(changeDir, ".opsx.yaml")
+        ChangeConfig.updateStatus(configFile, status.value)
+    }
+
+    fun appendFeedback(
+        changeDir: File,
+        content: String,
+    ) {
+        val file = File(changeDir, "feedback.md")
+        if (file.exists()) {
+            file.appendText("\n$content")
+        } else {
+            file.writeText(content)
+        }
+    }
+}
