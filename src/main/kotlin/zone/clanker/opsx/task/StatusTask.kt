@@ -10,7 +10,7 @@ import zone.clanker.opsx.model.TaskStatus
 import zone.clanker.opsx.workflow.ChangeReader
 import zone.clanker.opsx.workflow.TaskParser
 
-/** Shows status of all changes with their files, dependencies, and progress. */
+/** Shows status of all changes with per-task details. */
 @DisableCachingByDefault(because = "Displays change status to console")
 abstract class StatusTask : DefaultTask() {
     @get:Internal
@@ -31,25 +31,13 @@ abstract class StatusTask : DefaultTask() {
         logger.quiet("opsx: ${changes.size} changes ($active active, $done done)")
         logger.quiet("")
 
-        // Show in lifecycle order
         STATUS_ORDER.forEach { status ->
             val group = byStatus[status] ?: return@forEach
             logger.quiet("  [$status] (${group.size})")
-            group.forEach { change ->
-                val deps =
-                    if (change.depends.isEmpty()) {
-                        ""
-                    } else {
-                        " <- ${change.depends.joinToString()}"
-                    }
-                val files = describeFiles(change)
-                val taskProgress = describeTaskProgress(change)
-                logger.quiet("    ${change.name}$deps  $files$taskProgress")
-            }
+            group.forEach { change -> printChange(change) }
             logger.quiet("")
         }
 
-        // Show any status not in the known order
         byStatus.keys
             .filter { it !in STATUS_ORDER }
             .forEach { status ->
@@ -60,6 +48,22 @@ abstract class StatusTask : DefaultTask() {
                 }
                 logger.quiet("")
             }
+    }
+
+    private fun printChange(change: zone.clanker.opsx.model.Change) {
+        val deps = if (change.depends.isEmpty()) "" else " <- ${change.depends.joinToString()}"
+        val files = describeFiles(change)
+        val taskProgress = describeTaskProgress(change)
+        logger.quiet("    ${change.name}$deps  $files$taskProgress")
+
+        if (change.tasksFile.exists()) {
+            val tasks = TaskParser.parse(change.tasksFile)
+            tasks.forEach { task ->
+                val depCount = task.dependencies.size
+                val depLabel = if (depCount > 0) " ($depCount deps)" else ""
+                logger.quiet("      [${task.status.symbol}] ${task.id} | ${task.name}$depLabel")
+            }
+        }
     }
 
     private fun describeFiles(change: zone.clanker.opsx.model.Change): String {

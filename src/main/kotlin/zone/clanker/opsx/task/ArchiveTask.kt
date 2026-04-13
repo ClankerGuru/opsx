@@ -5,11 +5,13 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 import zone.clanker.opsx.Opsx
+import zone.clanker.opsx.model.ChangeConfig
 import zone.clanker.opsx.model.ChangeStatus
 import zone.clanker.opsx.workflow.ChangeReader
 import zone.clanker.opsx.workflow.ChangeWriter
+import java.io.File
 
-/** Archives a completed change. */
+/** Archives a verified change. Requires that the verify command has passed. */
 @DisableCachingByDefault(because = "Updates change status on disk")
 abstract class ArchiveTask : DefaultTask() {
     @get:Internal
@@ -29,8 +31,17 @@ abstract class ArchiveTask : DefaultTask() {
                 ?: error("Change not found: $changeName")
 
         val status = ChangeStatus.from(change.status)
-        require(status.canTransitionTo(ChangeStatus.ARCHIVED)) {
-            "Cannot archive '$changeName': status '${change.status}' cannot transition to 'archived'"
+
+        val config = ChangeConfig.parse(File(change.dir, ".opsx.yaml"))
+        if (config != null && config.verify.isNotBlank()) {
+            require(status == ChangeStatus.VERIFIED) {
+                "Cannot archive '$changeName': status is '${status.value}', " +
+                    "not 'verified'. Run opsx-verify first."
+            }
+        } else {
+            require(status.canTransitionTo(ChangeStatus.ARCHIVED)) {
+                "Cannot archive '$changeName': status '${change.status}' cannot transition to 'archived'"
+            }
         }
 
         writer.updateStatus(change.dir, ChangeStatus.ARCHIVED)
