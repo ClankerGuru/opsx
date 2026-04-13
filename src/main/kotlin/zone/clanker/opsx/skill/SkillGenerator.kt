@@ -36,9 +36,15 @@ class SkillGenerator(
             File(sourceDir, "${task.name}.md").writeText(buildCommandFile(task, builds))
         }
 
-        // Symlink from each agent's expected location
-        AGENT_TARGETS.forEach { target ->
-            val targetDir = File(homeDir(), target)
+        // Symlink from each agent's expected location (home + project)
+        val allTargetDirs =
+            AGENT_TARGETS.flatMap { target ->
+                listOf(
+                    File(homeDir(), target),
+                    File(rootProject.rootDir, target),
+                )
+            }
+        allTargetDirs.forEach { targetDir ->
             targetDir.mkdirs()
             tasks.forEach { task ->
                 val source = File(sourceDir, "${task.name}.md").toPath()
