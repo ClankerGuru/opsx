@@ -4,7 +4,7 @@ plugins {
 
 dependencies {
     implementation("zone.clanker:plugin-wrkx:0.40.0")
-    implementation("zone.clanker:plugin-srcx:0.43.0")
+    implementation("zone.clanker:plugin-srcx:0.44.0")
 }
 
 gradlePlugin {

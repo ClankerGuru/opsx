@@ -207,15 +207,23 @@ data object Opsx {
                 cleaned = true
             }
 
-            // Remove only opsx-generated symlinks from agent target directories
+            // Remove only opsx-generated symlinks (pointing into our skills dir)
+            val home = java.io.File(System.getProperty("user.home"))
+            val skillsPath = java.io.File(home, SkillGenerator.SKILLS_DIR).toPath()
             SkillGenerator.AGENT_TARGETS.forEach { target ->
-                val dir = java.io.File(System.getProperty("user.home"), target)
+                val dir = java.io.File(home, target)
                 if (dir.exists()) {
                     dir
                         .listFiles()
-                        ?.filter {
+                        ?.filter { file ->
+                            val path = file.toPath()
                             java.nio.file.Files
-                                .isSymbolicLink(it.toPath())
+                                .isSymbolicLink(path) &&
+                                runCatching {
+                                    java.nio.file.Files
+                                        .readSymbolicLink(path)
+                                        .startsWith(skillsPath)
+                                }.getOrDefault(false)
                         }?.forEach { link ->
                             link.delete()
                             logger.lifecycle("opsx-clean: removed symlink ${link.name} from $target")
