@@ -1,0 +1,4 @@
+name: atomic-task-execution
+status: draft
+depends:
+  - searchable-context-index

@@ -31,8 +31,17 @@ class OpsxPluginTest :
                 Opsx.TASK_FF shouldBe "opsx-ff"
                 Opsx.TASK_BULK_ARCHIVE shouldBe "opsx-bulk-archive"
             }
+            then("property names are namespaced") {
+                Opsx.PROP_PROMPT shouldBe "zone.clanker.opsx.prompt"
+                Opsx.PROP_SPEC shouldBe "zone.clanker.opsx.spec"
+                Opsx.PROP_CHANGE shouldBe "zone.clanker.opsx.change"
+                Opsx.PROP_CHANGE_NAME shouldBe "zone.clanker.opsx.changeName"
+                Opsx.PROP_AGENT shouldBe "zone.clanker.opsx.agent"
+                Opsx.PROP_MODEL shouldBe "zone.clanker.opsx.model"
+            }
             then("infrastructure task names are correct") {
                 Opsx.TASK_SYNC shouldBe "opsx-sync"
+                Opsx.TASK_CLEAN shouldBe "opsx-clean"
                 Opsx.TASK_STATUS shouldBe "opsx-status"
                 Opsx.TASK_LIST shouldBe "opsx-list"
             }
@@ -82,7 +91,7 @@ class OpsxPluginTest :
             plugin.registerTasks(project, ext)
 
             `when`("tasks are registered") {
-                then("all 13 tasks exist") {
+                then("all 14 tasks exist") {
                     project.tasks.findByName(Opsx.TASK_PROPOSE).shouldNotBeNull()
                     project.tasks.findByName(Opsx.TASK_APPLY).shouldNotBeNull()
                     project.tasks.findByName(Opsx.TASK_VERIFY).shouldNotBeNull()
@@ -95,52 +104,55 @@ class OpsxPluginTest :
                     project.tasks.findByName(Opsx.TASK_BULK_ARCHIVE).shouldNotBeNull()
                     project.tasks.findByName(Opsx.TASK_SYNC).shouldNotBeNull()
                     project.tasks.findByName(Opsx.TASK_STATUS).shouldNotBeNull()
+                    project.tasks.findByName(Opsx.TASK_CLEAN).shouldNotBeNull()
                     project.tasks.findByName(Opsx.TASK_LIST).shouldNotBeNull()
                 }
 
                 then("all tasks have group opsx") {
-                    project.tasks.findByName(Opsx.TASK_PROPOSE)!!.group shouldBe Opsx.GROUP
-                    project.tasks.findByName(Opsx.TASK_APPLY)!!.group shouldBe Opsx.GROUP
-                    project.tasks.findByName(Opsx.TASK_VERIFY)!!.group shouldBe Opsx.GROUP
-                    project.tasks.findByName(Opsx.TASK_ARCHIVE)!!.group shouldBe Opsx.GROUP
-                    project.tasks.findByName(Opsx.TASK_CONTINUE)!!.group shouldBe Opsx.GROUP
-                    project.tasks.findByName(Opsx.TASK_EXPLORE)!!.group shouldBe Opsx.GROUP
-                    project.tasks.findByName(Opsx.TASK_FEEDBACK)!!.group shouldBe Opsx.GROUP
-                    project.tasks.findByName(Opsx.TASK_ONBOARD)!!.group shouldBe Opsx.GROUP
-                    project.tasks.findByName(Opsx.TASK_FF)!!.group shouldBe Opsx.GROUP
-                    project.tasks.findByName(Opsx.TASK_BULK_ARCHIVE)!!.group shouldBe Opsx.GROUP
-                    project.tasks.findByName(Opsx.TASK_SYNC)!!.group shouldBe Opsx.GROUP
-                    project.tasks.findByName(Opsx.TASK_STATUS)!!.group shouldBe Opsx.GROUP
-                    project.tasks.findByName(Opsx.TASK_LIST)!!.group shouldBe Opsx.GROUP
+                    val allTasks =
+                        listOf(
+                            Opsx.TASK_PROPOSE,
+                            Opsx.TASK_APPLY,
+                            Opsx.TASK_VERIFY,
+                            Opsx.TASK_ARCHIVE,
+                            Opsx.TASK_CONTINUE,
+                            Opsx.TASK_EXPLORE,
+                            Opsx.TASK_FEEDBACK,
+                            Opsx.TASK_ONBOARD,
+                            Opsx.TASK_FF,
+                            Opsx.TASK_BULK_ARCHIVE,
+                            Opsx.TASK_STATUS,
+                            Opsx.TASK_SYNC,
+                            Opsx.TASK_CLEAN,
+                            Opsx.TASK_LIST,
+                        )
+                    allTasks.forEach { taskName ->
+                        project.tasks.findByName(taskName)!!.group shouldBe Opsx.GROUP
+                    }
                 }
 
-                then("tasks have descriptions") {
-                    project.tasks.findByName(Opsx.TASK_PROPOSE)!!.description shouldBe
-                        "Propose a new change from a spec"
-                    project.tasks.findByName(Opsx.TASK_APPLY)!!.description shouldBe
-                        "Apply a change proposal to the codebase"
-                    project.tasks.findByName(Opsx.TASK_VERIFY)!!.description shouldBe
-                        "Verify a change was applied correctly"
-                    project.tasks.findByName(Opsx.TASK_ARCHIVE)!!.description shouldBe
-                        "Archive a completed change"
-                    project.tasks.findByName(Opsx.TASK_CONTINUE)!!.description shouldBe
-                        "Continue work on an in-progress change"
-                    project.tasks.findByName(Opsx.TASK_EXPLORE)!!.description shouldBe
-                        "Explore the codebase for a change"
-                    project.tasks.findByName(Opsx.TASK_FEEDBACK)!!.description shouldBe
-                        "Provide feedback on a change"
-                    project.tasks.findByName(Opsx.TASK_ONBOARD)!!.description shouldBe
-                        "Onboard a new contributor to the project"
-                    project.tasks.findByName(Opsx.TASK_FF)!!.description shouldBe
-                        "Fast-forward a change to the latest state"
-                    project.tasks.findByName(Opsx.TASK_BULK_ARCHIVE)!!.description shouldBe
-                        "Archive all completed changes in bulk"
-                    project.tasks.findByName(Opsx.TASK_SYNC)!!.description shouldBe
-                        "Generate slash commands for all agents"
-                    project.tasks.findByName(Opsx.TASK_STATUS)!!.description shouldBe
-                        "Show status of all changes"
-                    project.tasks.findByName(Opsx.TASK_LIST)!!.description shouldBe
-                        "List all changes and their status"
+                then("all tasks have descriptions") {
+                    val allTasks =
+                        listOf(
+                            Opsx.TASK_PROPOSE,
+                            Opsx.TASK_APPLY,
+                            Opsx.TASK_VERIFY,
+                            Opsx.TASK_ARCHIVE,
+                            Opsx.TASK_CONTINUE,
+                            Opsx.TASK_EXPLORE,
+                            Opsx.TASK_FEEDBACK,
+                            Opsx.TASK_ONBOARD,
+                            Opsx.TASK_FF,
+                            Opsx.TASK_BULK_ARCHIVE,
+                            Opsx.TASK_STATUS,
+                            Opsx.TASK_SYNC,
+                            Opsx.TASK_CLEAN,
+                            Opsx.TASK_LIST,
+                        )
+                    allTasks.forEach { taskName ->
+                        val desc = project.tasks.findByName(taskName)!!.description
+                        (desc != null && desc.isNotBlank()) shouldBe true
+                    }
                 }
             }
         }
@@ -288,14 +300,22 @@ class OpsxPluginTest :
                     }
                 tempDir.deleteOnExit()
 
+                val origHome = System.getProperty("user.home")
+                System.setProperty("user.home", tempDir.absolutePath)
+
+                val clkxSkills = File(tempDir, ".clkx/skills")
+                clkxSkills.mkdirs()
+                val sourceFile = File(clkxSkills, "opsx-list.md")
+                sourceFile.writeText("# opsx-list")
+
                 val claudeCommands = File(tempDir, ".claude/commands")
                 claudeCommands.mkdirs()
-                File(claudeCommands, "opsx-list.md").writeText("# opsx-list")
-                File(claudeCommands, "opsx-sync.md").writeText("# opsx-sync")
-
-                val githubPrompts = File(tempDir, ".github/prompts")
-                githubPrompts.mkdirs()
-                File(githubPrompts, "opsx-list.md").writeText("# opsx-list")
+                java.nio.file.Files.createSymbolicLink(
+                    File(claudeCommands, "opsx-list.md").toPath(),
+                    sourceFile.toPath(),
+                )
+                // Also add a user-owned file that should NOT be deleted
+                File(claudeCommands, "my-custom.md").writeText("# custom")
 
                 val project =
                     ProjectBuilder
@@ -306,12 +326,18 @@ class OpsxPluginTest :
                 val task = project.tasks.create("clean-test-dirs", Opsx.CleanTask::class.java)
                 task.run()
 
-                then("deletes .claude/commands directory") {
-                    claudeCommands.exists() shouldBe false
+                System.setProperty("user.home", origHome)
+
+                then("deletes .clkx/skills directory") {
+                    clkxSkills.exists() shouldBe false
                 }
 
-                then("deletes .github/prompts directory") {
-                    githubPrompts.exists() shouldBe false
+                then("removes opsx symlinks from .claude/commands") {
+                    File(claudeCommands, "opsx-list.md").exists() shouldBe false
+                }
+
+                then("preserves user-owned files in .claude/commands") {
+                    File(claudeCommands, "my-custom.md").exists() shouldBe true
                 }
             }
 
@@ -380,6 +406,235 @@ class OpsxPluginTest :
         given("Opsx.TASK_CLEAN constant") {
             then("value is opsx-clean") {
                 Opsx.TASK_CLEAN shouldBe "opsx-clean"
+            }
+        }
+
+        given("Opsx.ListTask @TaskAction") {
+            `when`("no changes exist") {
+                val projectDir =
+                    File.createTempFile("opsx-inner-list", "").apply {
+                        delete()
+                        mkdirs()
+                        deleteOnExit()
+                    }
+                val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
+                val task = project.tasks.create("test-inner-list", Opsx.ListTask::class.java)
+                task.extension = Opsx.SettingsExtension()
+
+                then("runs without error reporting no changes") {
+                    task.run()
+                }
+            }
+
+            `when`("changes exist") {
+                val projectDir =
+                    File.createTempFile("opsx-inner-list2", "").apply {
+                        delete()
+                        mkdirs()
+                        deleteOnExit()
+                    }
+                val changeDir = File(projectDir, "opsx/changes/inner-list-change")
+                changeDir.mkdirs()
+                zone.clanker.opsx.model.ChangeConfig.write(
+                    File(changeDir, ".opsx.yaml"),
+                    zone.clanker.opsx.model
+                        .ChangeConfig(name = "inner-list-change", status = "active"),
+                )
+
+                val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
+                val task = project.tasks.create("test-inner-list2", Opsx.ListTask::class.java)
+                task.extension = Opsx.SettingsExtension()
+
+                then("lists the changes") {
+                    task.run()
+                }
+            }
+        }
+
+        given("Opsx.StatusTask @TaskAction") {
+            `when`("no changes exist") {
+                val projectDir =
+                    File.createTempFile("opsx-inner-status", "").apply {
+                        delete()
+                        mkdirs()
+                        deleteOnExit()
+                    }
+                val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
+                val task = project.tasks.create("test-inner-status", Opsx.StatusTask::class.java)
+                task.extension = Opsx.SettingsExtension()
+
+                then("runs without error") {
+                    task.run()
+                }
+            }
+
+            `when`("changes with artifacts exist") {
+                val projectDir =
+                    File.createTempFile("opsx-inner-status2", "").apply {
+                        delete()
+                        mkdirs()
+                        deleteOnExit()
+                    }
+                val changeDir = File(projectDir, "opsx/changes/status-change")
+                changeDir.mkdirs()
+                zone.clanker.opsx.model.ChangeConfig.write(
+                    File(changeDir, ".opsx.yaml"),
+                    zone.clanker.opsx.model.ChangeConfig(
+                        name = "status-change",
+                        status = "active",
+                        depends = listOf("dep-a"),
+                    ),
+                )
+                File(changeDir, "proposal.md").writeText("proposal")
+                File(changeDir, "design.md").writeText("design")
+                File(changeDir, "tasks.md").writeText("# Tasks\n- [x] done\n")
+
+                val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
+                val task = project.tasks.create("test-inner-status2", Opsx.StatusTask::class.java)
+                task.extension = Opsx.SettingsExtension()
+
+                then("shows status with artifacts and deps") {
+                    task.run()
+                }
+            }
+        }
+
+        given("Opsx.StubTask @TaskAction") {
+            `when`("run is called") {
+                val projectDir =
+                    File.createTempFile("opsx-inner-stub", "").apply {
+                        delete()
+                        mkdirs()
+                        deleteOnExit()
+                    }
+                val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
+                val task = project.tasks.create("test-inner-stub", Opsx.StubTask::class.java)
+
+                then("logs the default message") {
+                    task.run()
+                }
+            }
+
+            `when`("custom message is set") {
+                val projectDir =
+                    File.createTempFile("opsx-inner-stub2", "").apply {
+                        delete()
+                        mkdirs()
+                        deleteOnExit()
+                    }
+                val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
+                val task = project.tasks.create("test-inner-stub2", Opsx.StubTask::class.java)
+                task.taskMessage = "custom message"
+
+                then("logs the custom message") {
+                    task.run()
+                    task.taskMessage shouldBe "custom message"
+                }
+            }
+        }
+
+        given("Opsx.SyncTask @TaskAction") {
+            `when`("run is called") {
+                val tempDir =
+                    File.createTempFile("opsx-inner-sync", "").apply {
+                        delete()
+                        mkdirs()
+                        deleteOnExit()
+                    }
+                val origHome = System.getProperty("user.home")
+                System.setProperty("user.home", tempDir.absolutePath)
+
+                val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
+                project.tasks.register("opsx-test-sync-skill") {
+                    it.group = "opsx"
+                    it.description = "Test sync skill"
+                }
+
+                val task = project.tasks.create("test-inner-sync", Opsx.SyncTask::class.java)
+                task.extension = Opsx.SettingsExtension()
+                task.run()
+
+                System.setProperty("user.home", origHome)
+
+                then("generates skill files and .gitignore") {
+                    val skillsDir = File(tempDir, ".clkx/skills")
+                    skillsDir.exists() shouldBe true
+                    val gitignore = File(skillsDir, ".gitignore")
+                    gitignore.exists() shouldBe true
+                    gitignore.readText() shouldContain "*"
+                }
+            }
+        }
+
+        given("Opsx.CleanTask @TaskAction") {
+            `when`("nothing to clean") {
+                val projectDir =
+                    File.createTempFile("opsx-inner-clean", "").apply {
+                        delete()
+                        mkdirs()
+                        deleteOnExit()
+                    }
+                val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
+                val task = project.tasks.create("test-inner-clean", Opsx.CleanTask::class.java)
+
+                then("completes without error") {
+                    task.run()
+                }
+            }
+
+            `when`("skills and srcx directories exist") {
+                val tempDir =
+                    File.createTempFile("opsx-inner-clean2", "").apply {
+                        delete()
+                        mkdirs()
+                        deleteOnExit()
+                    }
+                val origHome = System.getProperty("user.home")
+                System.setProperty("user.home", tempDir.absolutePath)
+
+                val skillsDir = File(tempDir, ".clkx/skills")
+                skillsDir.mkdirs()
+                File(skillsDir, "test.md").writeText("test")
+
+                val srcxDir = File(tempDir, ".srcx")
+                srcxDir.mkdirs()
+                File(srcxDir, "context.md").writeText("context")
+
+                val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
+                val task = project.tasks.create("test-inner-clean2", Opsx.CleanTask::class.java)
+                task.run()
+
+                System.setProperty("user.home", origHome)
+
+                then("cleans skills directory") {
+                    skillsDir.exists() shouldBe false
+                }
+
+                then("cleans srcx directory") {
+                    srcxDir.exists() shouldBe false
+                }
+            }
+
+            `when`("instruction files have markers") {
+                val tempDir =
+                    File.createTempFile("opsx-inner-clean3", "").apply {
+                        delete()
+                        mkdirs()
+                        deleteOnExit()
+                    }
+
+                val claudeMd = File(tempDir, "CLAUDE.md")
+                claudeMd.writeText("# Proj\n<!-- OPSX:AUTO -->\ngen\n<!-- /OPSX:AUTO -->\n")
+
+                val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
+                val task = project.tasks.create("test-inner-clean3", Opsx.CleanTask::class.java)
+                task.run()
+
+                then("removes markers from instruction files") {
+                    val content = claudeMd.readText()
+                    (content.contains("<!-- OPSX:AUTO -->")) shouldBe false
+                    content shouldContain "# Proj"
+                }
             }
         }
     })

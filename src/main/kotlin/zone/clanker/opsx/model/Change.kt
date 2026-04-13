@@ -11,5 +11,6 @@ data class Change(
     val proposalFile: File get() = File(dir, "proposal.md")
     val designFile: File get() = File(dir, "design.md")
     val tasksFile: File get() = File(dir, "tasks.md")
+    val feedbackFile: File get() = File(dir, "feedback.md")
     val configFile: File get() = File(dir, ".opsx.yaml")
 }

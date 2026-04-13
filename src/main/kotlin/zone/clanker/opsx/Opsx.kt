@@ -9,6 +9,16 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 import zone.clanker.opsx.skill.SkillGenerator
+import zone.clanker.opsx.task.ApplyTask
+import zone.clanker.opsx.task.ArchiveTask
+import zone.clanker.opsx.task.BulkArchiveTask
+import zone.clanker.opsx.task.ContinueTask
+import zone.clanker.opsx.task.ExploreTask
+import zone.clanker.opsx.task.FeedbackTask
+import zone.clanker.opsx.task.FfTask
+import zone.clanker.opsx.task.OnboardTask
+import zone.clanker.opsx.task.ProposeTask
+import zone.clanker.opsx.task.VerifyTask
 import zone.clanker.opsx.workflow.ChangeReader
 
 data object Opsx {
@@ -34,12 +44,14 @@ data object Opsx {
     const val TASK_STATUS = "opsx-status"
     const val TASK_LIST = "opsx-list"
 
-    // Plugin IDs to auto-apply if not present
-    private val MANAGED_PLUGINS =
-        listOf(
-            "zone.clanker.gradle.wrkx",
-            "zone.clanker.gradle.srcx",
-        )
+    // Namespaced Gradle properties (-P flags)
+    private const val PREFIX = "zone.clanker.opsx"
+    const val PROP_PROMPT = "$PREFIX.prompt"
+    const val PROP_SPEC = "$PREFIX.spec"
+    const val PROP_CHANGE = "$PREFIX.change"
+    const val PROP_CHANGE_NAME = "$PREFIX.changeName"
+    const val PROP_AGENT = "$PREFIX.agent"
+    const val PROP_MODEL = "$PREFIX.model"
 
     open class SettingsExtension {
         var outputDir: String = OUTPUT_DIR
@@ -52,7 +64,6 @@ data object Opsx {
     class SettingsPlugin : Plugin<Settings> {
         override fun apply(settings: Settings) {
             val extension = settings.extensions.create(EXTENSION_NAME, SettingsExtension::class.java)
-            applyManagedPlugins(settings)
             settings.gradle.rootProject(
                 Action { rootProject ->
                     registerTasks(rootProject, extension)
@@ -60,82 +71,70 @@ data object Opsx {
             )
         }
 
-        private fun applyManagedPlugins(settings: Settings) {
-            MANAGED_PLUGINS.forEach { pluginId ->
-                if (!settings.pluginManager.hasPlugin(pluginId)) {
-                    runCatching { settings.pluginManager.apply(pluginId) }
-                }
-            }
-        }
-
         internal fun registerTasks(
             rootProject: Project,
             extension: SettingsExtension,
         ) {
-            registerWorkflowTasks(rootProject)
+            registerWorkflowTasks(rootProject, extension)
             registerInfrastructureTasks(rootProject, extension)
         }
 
-        private fun registerWorkflowTasks(rootProject: Project) {
-            rootProject.tasks.register(TASK_PROPOSE, StubTask::class.java) {
+        private fun registerWorkflowTasks(
+            rootProject: Project,
+            extension: SettingsExtension,
+        ) {
+            // Primary workflow — visible in `./gradlew tasks`
+            rootProject.tasks.register(TASK_PROPOSE, ProposeTask::class.java) {
                 it.group = GROUP
-                it.description = "Propose a new change from a spec"
-                it.taskMessage = "$TASK_PROPOSE: not yet implemented — run opsx-sync first to generate skills"
+                it.description = "Propose a new change"
+                it.extension = extension
             }
-
-            rootProject.tasks.register(TASK_APPLY, StubTask::class.java) {
+            rootProject.tasks.register(TASK_APPLY, ApplyTask::class.java) {
                 it.group = GROUP
-                it.description = "Apply a change proposal to the codebase"
-                it.taskMessage = "$TASK_APPLY: not yet implemented — run opsx-sync first to generate skills"
+                it.description = "Apply a change to the codebase"
+                it.extension = extension
             }
-
-            rootProject.tasks.register(TASK_VERIFY, StubTask::class.java) {
+            rootProject.tasks.register(TASK_VERIFY, VerifyTask::class.java) {
                 it.group = GROUP
                 it.description = "Verify a change was applied correctly"
-                it.taskMessage = "$TASK_VERIFY: not yet implemented — run opsx-sync first to generate skills"
+                it.extension = extension
             }
-
-            rootProject.tasks.register(TASK_ARCHIVE, StubTask::class.java) {
+            rootProject.tasks.register(TASK_ARCHIVE, ArchiveTask::class.java) {
                 it.group = GROUP
                 it.description = "Archive a completed change"
-                it.taskMessage = "$TASK_ARCHIVE: not yet implemented — run opsx-sync first to generate skills"
+                it.extension = extension
             }
 
-            rootProject.tasks.register(TASK_CONTINUE, StubTask::class.java) {
+            // Secondary workflow
+            rootProject.tasks.register(TASK_CONTINUE, ContinueTask::class.java) {
                 it.group = GROUP
                 it.description = "Continue work on an in-progress change"
-                it.taskMessage = "$TASK_CONTINUE: not yet implemented — run opsx-sync first to generate skills"
+                it.extension = extension
             }
-
-            rootProject.tasks.register(TASK_EXPLORE, StubTask::class.java) {
+            rootProject.tasks.register(TASK_EXPLORE, ExploreTask::class.java) {
                 it.group = GROUP
                 it.description = "Explore the codebase for a change"
-                it.taskMessage = "$TASK_EXPLORE: not yet implemented — run opsx-sync first to generate skills"
+                it.extension = extension
             }
-
-            rootProject.tasks.register(TASK_FEEDBACK, StubTask::class.java) {
+            rootProject.tasks.register(TASK_FEEDBACK, FeedbackTask::class.java) {
                 it.group = GROUP
                 it.description = "Provide feedback on a change"
-                it.taskMessage = "$TASK_FEEDBACK: not yet implemented — run opsx-sync first to generate skills"
+                it.extension = extension
             }
-
-            rootProject.tasks.register(TASK_ONBOARD, StubTask::class.java) {
+            rootProject.tasks.register(TASK_ONBOARD, OnboardTask::class.java) {
                 it.group = GROUP
                 it.description = "Onboard a new contributor to the project"
-                it.taskMessage = "$TASK_ONBOARD: not yet implemented — run opsx-sync first to generate skills"
+                it.extension = extension
             }
-
-            rootProject.tasks.register(TASK_FF, StubTask::class.java) {
+            rootProject.tasks.register(TASK_FF, FfTask::class.java) {
                 it.group = GROUP
                 it.description = "Fast-forward a change to the latest state"
-                it.taskMessage = "$TASK_FF: not yet implemented — run opsx-sync first to generate skills"
+                it.extension = extension
             }
-
-            rootProject.tasks.register(TASK_BULK_ARCHIVE, StubTask::class.java) {
+            rootProject.tasks.register(TASK_BULK_ARCHIVE, BulkArchiveTask::class.java) {
                 it.group = GROUP
                 it.description = "Archive all completed changes in bulk"
-                it.taskMessage =
-                    "$TASK_BULK_ARCHIVE: not yet implemented — run opsx-sync first to generate skills"
+                it.extension = extension
             }
         }
 
@@ -143,26 +142,24 @@ data object Opsx {
             rootProject: Project,
             extension: SettingsExtension,
         ) {
-            rootProject.tasks.register(TASK_SYNC, SyncTask::class.java) {
+            rootProject.tasks.register(TASK_STATUS, zone.clanker.opsx.task.StatusTask::class.java) {
                 it.group = GROUP
-                it.description = "Generate slash commands for all agents"
+                it.description = "Show all changes and their status"
+                it.extension = extension
+            }
+            rootProject.tasks.register(TASK_SYNC, zone.clanker.opsx.task.SyncTask::class.java) {
+                it.group = GROUP
+                it.description = "Generate agent skills and instruction files"
                 it.extension = extension
             }
 
-            rootProject.tasks.register(TASK_CLEAN, CleanTask::class.java) {
+            rootProject.tasks.register(TASK_CLEAN, zone.clanker.opsx.task.CleanTask::class.java) {
                 it.group = GROUP
-                it.description = "Remove all generated skill files and .gitignore entries"
+                it.description = "Remove all generated skill files and symlinks"
             }
-
-            rootProject.tasks.register(TASK_STATUS, StatusTask::class.java) {
+            rootProject.tasks.register(TASK_LIST, zone.clanker.opsx.task.ListTask::class.java) {
                 it.group = GROUP
-                it.description = "Show status of all changes"
-                it.extension = extension
-            }
-
-            rootProject.tasks.register(TASK_LIST, ListTask::class.java) {
-                it.group = GROUP
-                it.description = "List all changes and their status"
+                it.description = "List all changes"
                 it.extension = extension
             }
         }
@@ -201,13 +198,37 @@ data object Opsx {
         fun run() {
             var cleaned = false
 
-            // Clean root opsx skill files
-            SkillGenerator.generatedDirs(project.rootDir).forEach { dir ->
+            // Clean opsx skill directory
+            val skillsDir = java.io.File(System.getProperty("user.home"), SkillGenerator.SKILLS_DIR)
+            if (skillsDir.exists()) {
+                val count = skillsDir.walkTopDown().filter { it.isFile }.count()
+                skillsDir.deleteRecursively()
+                logger.lifecycle("opsx-clean: deleted ${SkillGenerator.SKILLS_DIR} ($count files)")
+                cleaned = true
+            }
+
+            // Remove only opsx-generated symlinks (pointing into our skills dir)
+            val home = java.io.File(System.getProperty("user.home"))
+            val skillsPath = java.io.File(home, SkillGenerator.SKILLS_DIR).toPath()
+            SkillGenerator.AGENT_TARGETS.forEach { target ->
+                val dir = java.io.File(home, target)
                 if (dir.exists()) {
-                    val count = dir.walkTopDown().filter { it.isFile }.count()
-                    dir.deleteRecursively()
-                    logger.lifecycle("opsx-clean: deleted ${dir.relativeTo(project.rootDir)} ($count files)")
-                    cleaned = true
+                    dir
+                        .listFiles()
+                        ?.filter { file ->
+                            val path = file.toPath()
+                            java.nio.file.Files
+                                .isSymbolicLink(path) &&
+                                runCatching {
+                                    java.nio.file.Files
+                                        .readSymbolicLink(path)
+                                        .startsWith(skillsPath)
+                                }.getOrDefault(false)
+                        }?.forEach { link ->
+                            link.delete()
+                            logger.lifecycle("opsx-clean: removed symlink ${link.name} from $target")
+                            cleaned = true
+                        }
                 }
             }
             SkillGenerator.instructionFiles(project.rootDir).forEach { file ->
