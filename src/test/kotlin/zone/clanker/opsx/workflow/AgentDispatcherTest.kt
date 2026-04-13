@@ -85,9 +85,9 @@ class AgentDispatcherTest :
             }
         }
 
-        given("dispatch with a simple echo command") {
-            `when`("agent process completes successfully") {
-                then("returns exit code 0 and creates log file") {
+        given("dispatch when agent binary is unavailable") {
+            `when`("agent process fails to start or exits with error") {
+                then("returns a well-formed Result with non-zero exit code") {
                     val result =
                         AgentDispatcher.dispatch(
                             agent = "claude",
@@ -97,7 +97,8 @@ class AgentDispatcherTest :
                         )
                     // Agent not installed in CI — expect failure, but Result should be well-formed
                     result shouldNotBe null
-                    result.exitCode shouldBeLessThan 1000
+                    result.logFile shouldNotBe null
+                    result.exitCode shouldNotBe 0
                 }
             }
         }

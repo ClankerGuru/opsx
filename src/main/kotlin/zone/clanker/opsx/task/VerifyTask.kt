@@ -35,6 +35,11 @@ abstract class VerifyTask : DefaultTask() {
 
         val config = ChangeConfig.parse(File(change.dir, ".opsx.yaml"))
 
+        // Ensure the config file exists so status updates succeed
+        if (config == null) {
+            writer.writeConfig(change.dir, changeName, ChangeStatus.from(change.status))
+        }
+
         if (config != null && config.verify.isNotBlank()) {
             runVerifyCommand(config.verify, changeName, change.dir, writer)
         } else {

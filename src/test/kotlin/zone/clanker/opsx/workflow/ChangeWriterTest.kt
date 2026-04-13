@@ -1,5 +1,6 @@
 package zone.clanker.opsx.workflow
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -277,12 +278,10 @@ class ChangeWriterTest :
                 val writer = ChangeWriter(rootDir, createExtension())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
 
-                writer.updateStatus(changeDir, ChangeStatus.VERIFIED)
-
-                then("creates config file with status") {
-                    val file = File(changeDir, ".opsx.yaml")
-                    file.exists() shouldBe true
-                    file.readText() shouldContain "status: verified"
+                then("throws IllegalArgumentException") {
+                    shouldThrow<IllegalArgumentException> {
+                        writer.updateStatus(changeDir, ChangeStatus.VERIFIED)
+                    }
                 }
             }
 

@@ -41,6 +41,7 @@ class OpsxPluginTest :
             }
             then("infrastructure task names are correct") {
                 Opsx.TASK_SYNC shouldBe "opsx-sync"
+                Opsx.TASK_CLEAN shouldBe "opsx-clean"
                 Opsx.TASK_STATUS shouldBe "opsx-status"
                 Opsx.TASK_LIST shouldBe "opsx-list"
             }
@@ -90,7 +91,7 @@ class OpsxPluginTest :
             plugin.registerTasks(project, ext)
 
             `when`("tasks are registered") {
-                then("all 13 tasks exist") {
+                then("all 14 tasks exist") {
                     project.tasks.findByName(Opsx.TASK_PROPOSE).shouldNotBeNull()
                     project.tasks.findByName(Opsx.TASK_APPLY).shouldNotBeNull()
                     project.tasks.findByName(Opsx.TASK_VERIFY).shouldNotBeNull()
@@ -103,6 +104,7 @@ class OpsxPluginTest :
                     project.tasks.findByName(Opsx.TASK_BULK_ARCHIVE).shouldNotBeNull()
                     project.tasks.findByName(Opsx.TASK_SYNC).shouldNotBeNull()
                     project.tasks.findByName(Opsx.TASK_STATUS).shouldNotBeNull()
+                    project.tasks.findByName(Opsx.TASK_CLEAN).shouldNotBeNull()
                     project.tasks.findByName(Opsx.TASK_LIST).shouldNotBeNull()
                 }
 
@@ -121,6 +123,8 @@ class OpsxPluginTest :
                             Opsx.TASK_BULK_ARCHIVE,
                             Opsx.TASK_STATUS,
                             Opsx.TASK_SYNC,
+                            Opsx.TASK_CLEAN,
+                            Opsx.TASK_LIST,
                         )
                     allTasks.forEach { taskName ->
                         project.tasks.findByName(taskName)!!.group shouldBe Opsx.GROUP
@@ -142,6 +146,8 @@ class OpsxPluginTest :
                             Opsx.TASK_BULK_ARCHIVE,
                             Opsx.TASK_STATUS,
                             Opsx.TASK_SYNC,
+                            Opsx.TASK_CLEAN,
+                            Opsx.TASK_LIST,
                         )
                     allTasks.forEach { taskName ->
                         val desc = project.tasks.findByName(taskName)!!.description

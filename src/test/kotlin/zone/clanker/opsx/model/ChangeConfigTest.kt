@@ -1,5 +1,6 @@
 package zone.clanker.opsx.model
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -206,10 +207,10 @@ class ChangeConfigTest :
                 tempFile.deleteOnExit()
                 tempFile.delete()
 
-                then("creates file with just status") {
-                    ChangeConfig.updateStatus(tempFile, "draft")
-                    val content = tempFile.readText()
-                    content shouldBe "status: draft\n"
+                then("throws IllegalArgumentException") {
+                    shouldThrow<IllegalArgumentException> {
+                        ChangeConfig.updateStatus(tempFile, "draft")
+                    }
                 }
             }
 

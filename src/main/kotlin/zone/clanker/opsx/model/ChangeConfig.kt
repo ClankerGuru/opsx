@@ -74,9 +74,8 @@ data class ChangeConfig(
             file: File,
             newStatus: String,
         ) {
-            if (!file.exists()) {
-                file.writeText("status: $newStatus\n")
-                return
+            require(file.exists()) {
+                "Cannot update status: config file does not exist at ${file.path}"
             }
             val lines = file.readLines()
             val updated = mutableListOf<String>()

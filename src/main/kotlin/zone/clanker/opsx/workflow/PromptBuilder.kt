@@ -24,6 +24,9 @@ class PromptBuilder(
         extension: Opsx.SettingsExtension,
         specName: String,
     ): String {
+        require(!specName.contains("..") && !specName.contains("/") && !specName.contains("\\")) {
+            "Invalid spec name '$specName': must not contain '..', '/', or '\\'"
+        }
         val file = File(rootDir, "${extension.outputDir}/${extension.specsDir}/$specName.md")
         return if (file.exists()) file.readText() else ""
     }

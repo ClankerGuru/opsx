@@ -5,7 +5,13 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 
-/** Synchronized append-only logger for change execution journals. */
+/**
+ * Synchronized append-only logger for change execution journals.
+ *
+ * The [ReentrantLock] per change directory serialises appends within a single JVM process.
+ * It does NOT guarantee atomicity across multiple OS processes writing to the same file.
+ * This is acceptable because Gradle runs a single build per project at a time.
+ */
 object ChangeLogger {
     private val locks = ConcurrentHashMap<String, ReentrantLock>()
 

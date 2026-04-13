@@ -42,15 +42,15 @@ abstract class ApplyTask : DefaultTask() {
             "Cannot apply '$changeName': missing ${missing.joinToString(", ")}"
         }
 
-        writer.updateStatus(change.dir, ChangeStatus.IN_PROGRESS)
-
         val context = promptBuilder.srcxContext()
         val changeCtx = promptBuilder.changeContext(change)
         val fullPrompt = buildApplyPrompt(context, changeCtx, change.dir)
 
         logger.quiet("opsx-apply: asking $agent to implement '$changeName'...")
         val result = AgentDispatcher.dispatch(agent, fullPrompt, project.rootDir, model)
-        if (result.exitCode != 0) {
+        if (result.exitCode == 0) {
+            writer.updateStatus(change.dir, ChangeStatus.IN_PROGRESS)
+        } else {
             logger.warn("opsx-apply: agent exited with code ${result.exitCode}")
         }
     }
@@ -60,8 +60,9 @@ abstract class ApplyTask : DefaultTask() {
             if (!change.proposalFile.exists()) add("proposal.md")
             if (!change.designFile.exists()) add("design.md")
             val status = ChangeStatus.from(change.status)
-            if (status == ChangeStatus.ARCHIVED) add("change is archived")
-            if (status == ChangeStatus.VERIFIED) add("change is already verified")
+            if (!status.canTransitionTo(ChangeStatus.IN_PROGRESS)) {
+                add("cannot transition from '${status.value}' to 'in-progress'")
+            }
         }
 
     internal fun buildApplyPrompt(

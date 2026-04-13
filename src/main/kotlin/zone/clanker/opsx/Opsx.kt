@@ -20,7 +20,6 @@ import zone.clanker.opsx.task.OnboardTask
 import zone.clanker.opsx.task.ProposeTask
 import zone.clanker.opsx.task.VerifyTask
 import zone.clanker.opsx.workflow.ChangeReader
-import java.io.File
 
 data object Opsx {
     const val GROUP = "opsx"
@@ -68,7 +67,6 @@ data object Opsx {
             settings.gradle.rootProject(
                 Action { rootProject ->
                     registerTasks(rootProject, extension)
-                    autoSyncOnFirstRun(rootProject)
                 },
             )
         }
@@ -79,18 +77,6 @@ data object Opsx {
         ) {
             registerWorkflowTasks(rootProject, extension)
             registerInfrastructureTasks(rootProject, extension)
-        }
-
-        private fun autoSyncOnFirstRun(rootProject: Project) {
-            rootProject.afterEvaluate {
-                val home = File(System.getProperty("user.home"))
-                val skillDir = File(home, SkillGenerator.SKILLS_DIR)
-                if (!skillDir.exists() || skillDir.listFiles().orEmpty().none { it.name.endsWith(".md") }) {
-                    val generator = SkillGenerator(rootProject)
-                    generator.generate()
-                    rootProject.logger.quiet("opsx: auto-generated agent skills to ~/${SkillGenerator.SKILLS_DIR}")
-                }
-            }
         }
 
         private fun registerWorkflowTasks(

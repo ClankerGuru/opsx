@@ -7,6 +7,7 @@ import zone.clanker.opsx.model.TaskStatus
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class ChangeLoggerTest :
     BehaviorSpec({
@@ -64,13 +65,17 @@ class ChangeLoggerTest :
 
                 (0 until threadCount).forEach { i ->
                     executor.submit {
-                        val id = "task${i.toString().padStart(6, '0')}"
-                        ChangeLogger.append(tempDir, id, "Task $i", TaskStatus.DONE, "done")
+                        runCatching {
+                            val id = "task${i.toString().padStart(6, '0')}"
+                            ChangeLogger.append(tempDir, id, "Task $i", TaskStatus.DONE, "done")
+                        }
                         latch.countDown()
                     }
                 }
-                latch.await()
+                val completed = latch.await(10, TimeUnit.SECONDS)
                 executor.shutdown()
+                executor.awaitTermination(5, TimeUnit.SECONDS)
+                require(completed) { "Concurrent test timed out — possible deadlock" }
 
                 then("all entries are present without corruption") {
                     val lines =

@@ -44,7 +44,21 @@ class SkillGenerator(
                 val source = File(sourceDir, "${task.name}.md").toPath()
                 val link = File(targetDir, "${task.name}.md").toPath()
                 runCatching {
-                    Files.deleteIfExists(link)
+                    // Only remove the file if it is a symlink pointing into our source dir.
+                    // This avoids clobbering user-created files that happen to share the same name.
+                    if (Files.exists(link) || Files.isSymbolicLink(link)) {
+                        if (Files.isSymbolicLink(link) &&
+                            Files.readSymbolicLink(link).startsWith(sourceDir.toPath())
+                        ) {
+                            Files.delete(link)
+                        } else if (!Files.isSymbolicLink(link)) {
+                            // Not a symlink — leave user-owned file untouched
+                            return@runCatching
+                        } else {
+                            // Symlink pointing elsewhere — leave it
+                            return@runCatching
+                        }
+                    }
                     Files.createSymbolicLink(link, source)
                 }
             }

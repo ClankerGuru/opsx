@@ -1,5 +1,6 @@
 package zone.clanker.opsx.model
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
@@ -41,8 +42,10 @@ class ChangeStatusTest :
             }
 
             `when`("called with unknown value") {
-                then("returns ACTIVE") {
-                    ChangeStatus.from("unknown") shouldBe ChangeStatus.ACTIVE
+                then("throws IllegalArgumentException") {
+                    shouldThrow<IllegalArgumentException> {
+                        ChangeStatus.from("unknown")
+                    }
                 }
             }
         }

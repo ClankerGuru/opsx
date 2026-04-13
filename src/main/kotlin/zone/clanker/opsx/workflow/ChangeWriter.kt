@@ -10,10 +10,20 @@ class ChangeWriter(
     private val extension: Opsx.SettingsExtension,
 ) {
     fun createChangeDir(changeName: String): File {
+        requireSafeName(changeName)
         val changesDir = File(rootDir, "${extension.outputDir}/${extension.changesDir}")
         val changeDir = File(changesDir, changeName)
         changeDir.mkdirs()
         return changeDir
+    }
+
+    companion object {
+        /** Reject names that could escape the changes directory via path traversal. */
+        internal fun requireSafeName(name: String) {
+            require(!name.contains("..") && !name.contains("/") && !name.contains("\\")) {
+                "Invalid change name '$name': must not contain '..', '/', or '\\'"
+            }
+        }
     }
 
     fun writeConfig(

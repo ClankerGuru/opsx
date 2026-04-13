@@ -26,6 +26,8 @@ enum class ChangeStatus(
         }
 
     companion object {
-        fun from(value: String): ChangeStatus = entries.firstOrNull { it.value == value } ?: ACTIVE
+        fun from(value: String): ChangeStatus =
+            entries.firstOrNull { it.value == value }
+                ?: throw IllegalArgumentException("Unknown change status: '$value'")
     }
 }

@@ -5,7 +5,6 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 import zone.clanker.opsx.Opsx
-import zone.clanker.opsx.model.Change
 import zone.clanker.opsx.model.ChangeStatus
 import zone.clanker.opsx.workflow.ChangeReader
 import zone.clanker.opsx.workflow.ChangeWriter
@@ -29,17 +28,12 @@ abstract class ArchiveTask : DefaultTask() {
             reader.readAll().find { it.name == changeName }
                 ?: error("Change not found: $changeName")
 
-        require(validateForArchive(change)) {
-            "Cannot archive '$changeName': status is '${change.status}' " +
-                "(must be completed, verified, or archived)"
+        val status = ChangeStatus.from(change.status)
+        require(status.canTransitionTo(ChangeStatus.ARCHIVED)) {
+            "Cannot archive '$changeName': status '${change.status}' cannot transition to 'archived'"
         }
 
         writer.updateStatus(change.dir, ChangeStatus.ARCHIVED)
         logger.quiet("opsx-archive: '$changeName' archived")
-    }
-
-    internal fun validateForArchive(change: Change): Boolean {
-        val status = ChangeStatus.from(change.status)
-        return status in setOf(ChangeStatus.COMPLETED, ChangeStatus.DONE, ChangeStatus.VERIFIED, ChangeStatus.ARCHIVED)
     }
 }
