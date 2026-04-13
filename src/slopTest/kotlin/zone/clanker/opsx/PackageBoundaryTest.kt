@@ -24,23 +24,29 @@ class PackageBoundaryTest :
 
         val mainScope = Konsist.scopeFromSourceSet("main")
 
+        fun inPackage(
+            name: String,
+            pkg: String,
+        ): Boolean = name == pkg || name.startsWith("$pkg.")
+
         given("import direction enforcement") {
 
             `when`("files are in the model package") {
                 val modelFiles =
                     mainScope.files.filter {
-                        it.packagee?.name?.contains("opsx.model") == true
+                        val pkg = it.packagee?.name ?: ""
+                        inPackage(pkg, "zone.clanker.opsx.model")
                     }
 
                 then("models never import from the task package") {
                     modelFiles.assertTrue {
-                        it.imports.none { imp -> imp.name.contains("opsx.task") }
+                        it.imports.none { imp -> inPackage(imp.name, "zone.clanker.opsx.task") }
                     }
                 }
 
                 then("models never import from the workflow package") {
                     modelFiles.assertTrue {
-                        it.imports.none { imp -> imp.name.contains("opsx.workflow") }
+                        it.imports.none { imp -> inPackage(imp.name, "zone.clanker.opsx.workflow") }
                     }
                 }
             }
@@ -48,12 +54,13 @@ class PackageBoundaryTest :
             `when`("files are in the workflow package") {
                 val workflowFiles =
                     mainScope.files.filter {
-                        it.packagee?.name?.contains("opsx.workflow") == true
+                        val pkg = it.packagee?.name ?: ""
+                        inPackage(pkg, "zone.clanker.opsx.workflow")
                     }
 
                 then("workflow never imports from the task package") {
                     workflowFiles.assertTrue {
-                        it.imports.none { imp -> imp.name.contains("opsx.task") }
+                        it.imports.none { imp -> inPackage(imp.name, "zone.clanker.opsx.task") }
                     }
                 }
             }

@@ -23,7 +23,7 @@ abstract class ProposeTask : DefaultTask() {
         val prompt = project.findProperty(Opsx.PROP_PROMPT)?.toString()
         val nameOverride = project.findProperty(Opsx.PROP_CHANGE_NAME)?.toString()
         val agent =
-            project.findProperty(Opsx.PROP_AGENT)?.toString()
+            project.findProperty(Opsx.PROP_AGENT)?.toString()?.takeUnless { it.isBlank() }
                 ?: extension.defaultAgent
         val model = project.findProperty(Opsx.PROP_MODEL)?.toString() ?: ""
 
@@ -38,12 +38,17 @@ abstract class ProposeTask : DefaultTask() {
         val promptBuilder = PromptBuilder(project.rootDir)
         val writer = ChangeWriter(project.rootDir, extension)
 
+        if (spec != null) {
+            require(promptBuilder.specContent(extension, spec).isNotBlank()) {
+                "Spec not found: $spec"
+            }
+        }
+
         val changeDir = writer.createChangeDir(changeName)
         writer.writeConfig(changeDir, changeName, ChangeStatus.DRAFT)
 
         if (spec != null) {
             val specContent = promptBuilder.specContent(extension, spec)
-            require(specContent.isNotBlank()) { "Spec not found: $spec" }
             writer.writeProposal(changeDir, specContent)
             writer.writeDesignSkeleton(changeDir, changeName)
             writer.writeTasksSkeleton(changeDir, changeName)

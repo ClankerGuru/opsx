@@ -1,8 +1,17 @@
 package zone.clanker.opsx.task
 
+import io.kotest.assertions.throwables.shouldNotThrow
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import org.gradle.testfixtures.ProjectBuilder
+import zone.clanker.opsx.Opsx
+import zone.clanker.opsx.model.ChangeConfig
 import zone.clanker.opsx.model.ChangeStatus
+import java.io.File
+
+private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
 
 class ArchiveTaskTest :
     BehaviorSpec({
@@ -54,6 +63,84 @@ class ArchiveTaskTest :
             `when`("status is in-progress") {
                 then("cannot transition to archived") {
                     ChangeStatus.from("in-progress").canTransitionTo(ChangeStatus.ARCHIVED) shouldBe false
+                }
+            }
+        }
+
+        given("ArchiveTask with verify command gate") {
+
+            `when`("change has verify command and status is verified") {
+                val projectDir =
+                    File.createTempFile("opsx-archive", "").apply {
+                        delete()
+                        mkdirs()
+                        deleteOnExit()
+                    }
+                val changeDir = File(projectDir, "opsx/changes/gate-test").apply { mkdirs() }
+                ChangeConfig.write(
+                    File(changeDir, ".opsx.yaml"),
+                    ChangeConfig(name = "gate-test", status = "verified", verify = "./gradlew test"),
+                )
+
+                val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
+                project.extensions.extraProperties.set(Opsx.PROP_CHANGE, "gate-test")
+                val task = project.tasks.create("test-archive", ArchiveTask::class.java)
+                task.extension = createExtension()
+
+                then("archives successfully") {
+                    shouldNotThrow<IllegalArgumentException> { task.run() }
+                    val config = ChangeConfig.parse(File(changeDir, ".opsx.yaml"))
+                    config!!.status shouldBe "archived"
+                }
+            }
+
+            `when`("change has verify command but status is active") {
+                val projectDir =
+                    File.createTempFile("opsx-archive", "").apply {
+                        delete()
+                        mkdirs()
+                        deleteOnExit()
+                    }
+                val changeDir = File(projectDir, "opsx/changes/gate-fail").apply { mkdirs() }
+                ChangeConfig.write(
+                    File(changeDir, ".opsx.yaml"),
+                    ChangeConfig(name = "gate-fail", status = "active", verify = "./gradlew test"),
+                )
+
+                val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
+                project.extensions.extraProperties.set(Opsx.PROP_CHANGE, "gate-fail")
+                val task = project.tasks.create("test-archive-fail", ArchiveTask::class.java)
+                task.extension = createExtension()
+
+                then("rejects with error about verify") {
+                    val ex = shouldThrow<IllegalArgumentException> { task.run() }
+                    ex.message shouldContain "verify"
+                    ex.message shouldContain "not 'verified'"
+                }
+            }
+
+            `when`("change has no verify command and status is done") {
+                val projectDir =
+                    File.createTempFile("opsx-archive", "").apply {
+                        delete()
+                        mkdirs()
+                        deleteOnExit()
+                    }
+                val changeDir = File(projectDir, "opsx/changes/no-verify").apply { mkdirs() }
+                ChangeConfig.write(
+                    File(changeDir, ".opsx.yaml"),
+                    ChangeConfig(name = "no-verify", status = "done"),
+                )
+
+                val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
+                project.extensions.extraProperties.set(Opsx.PROP_CHANGE, "no-verify")
+                val task = project.tasks.create("test-archive-no-verify", ArchiveTask::class.java)
+                task.extension = createExtension()
+
+                then("archives via normal transition") {
+                    shouldNotThrow<IllegalArgumentException> { task.run() }
+                    val config = ChangeConfig.parse(File(changeDir, ".opsx.yaml"))
+                    config!!.status shouldBe "archived"
                 }
             }
         }

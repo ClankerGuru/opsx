@@ -12,6 +12,8 @@ enum class TaskStatus(
     ;
 
     companion object {
-        fun fromSymbol(c: Char): TaskStatus = entries.firstOrNull { it.symbol == c } ?: TODO
+        fun fromSymbol(c: Char): TaskStatus =
+            entries.firstOrNull { it.symbol == c }
+                ?: throw IllegalArgumentException("Unknown task status symbol: '$c'")
     }
 }

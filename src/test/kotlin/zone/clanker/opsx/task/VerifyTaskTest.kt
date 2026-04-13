@@ -2,9 +2,9 @@ package zone.clanker.opsx.task
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import org.gradle.api.GradleException
 import org.gradle.testfixtures.ProjectBuilder
 import zone.clanker.opsx.Opsx
 import zone.clanker.opsx.model.ChangeConfig
@@ -217,8 +217,9 @@ class VerifyTaskTest :
                 val task = project.tasks.create("test-verify-cmd-fail", VerifyTask::class.java)
                 task.extension = createExtension()
 
-                then("does not mark as verified") {
-                    task.run()
+                then("throws GradleException and does not mark as verified") {
+                    val ex = shouldThrow<GradleException> { task.run() }
+                    ex.message shouldContain "verify command failed"
                     val config = ChangeConfig.parse(File(changeDir, ".opsx.yaml"))
                     config!!.status shouldContain "active"
                 }
@@ -242,14 +243,11 @@ class VerifyTaskTest :
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 project.extensions.extraProperties.set(Opsx.PROP_CHANGE, "test-agent")
                 val task = project.tasks.create("test-verify-agent", VerifyTask::class.java)
-                task.extension = createExtension()
+                task.extension = createExtension().apply { defaultAgent = "nonexistent-agent-binary-xyz" }
 
-                then("runs agent verify path without throwing") {
-                    // Exercises runAgentVerify; result depends on agent availability
-                    task.run()
-                    val config = ChangeConfig.parse(File(changeDir, ".opsx.yaml"))
-                    // Status is either "active" (agent failed) or "verified" (agent succeeded)
-                    (config!!.status in listOf("active", "verified")) shouldBe true
+                then("throws when agent is unknown") {
+                    val ex = shouldThrow<IllegalStateException> { task.run() }
+                    ex.message shouldContain "Unknown agent"
                 }
             }
 
@@ -267,11 +265,11 @@ class VerifyTaskTest :
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 project.extensions.extraProperties.set(Opsx.PROP_CHANGE, "no-config")
                 val task = project.tasks.create("test-verify-noconfig", VerifyTask::class.java)
-                task.extension = createExtension()
+                task.extension = createExtension().apply { defaultAgent = "nonexistent-agent-binary-xyz" }
 
-                then("falls back to agent verify path since config is null") {
-                    // Agent not available, so it falls through the agent path and fails gracefully
-                    task.run()
+                then("falls back to agent verify path and throws when agent unknown") {
+                    val ex = shouldThrow<IllegalStateException> { task.run() }
+                    ex.message shouldContain "Unknown agent"
                 }
             }
         }

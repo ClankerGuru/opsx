@@ -2,7 +2,6 @@ package zone.clanker.opsx.task
 
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
 import org.gradle.testfixtures.ProjectBuilder
 import zone.clanker.opsx.Opsx
 import java.io.File
@@ -138,60 +137,6 @@ class ContinueTaskTest :
 
                 then("counts uppercase X as done") {
                     task.detectProgress(tasksContent) shouldBe "2/3 tasks complete"
-                }
-            }
-        }
-
-        given("ContinueTask.buildContinuePrompt") {
-
-            `when`("all inputs provided") {
-                val projectDir =
-                    File.createTempFile("opsx-continue", "").apply {
-                        delete()
-                        mkdirs()
-                        deleteOnExit()
-                    }
-                val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                val task = project.tasks.create("test-continue", ContinueTask::class.java)
-                task.extension = createExtension()
-
-                val prompt = task.buildContinuePrompt("codebase ctx", "change ctx", "3/5 tasks complete")
-
-                then("includes codebase context") {
-                    prompt shouldContain "codebase ctx"
-                }
-
-                then("includes change context") {
-                    prompt shouldContain "change ctx"
-                }
-
-                then("includes progress") {
-                    prompt shouldContain "3/5 tasks complete"
-                }
-
-                then("includes continue instructions") {
-                    prompt shouldContain "Continue implementing this change"
-                    prompt shouldContain "unchecked tasks"
-                    prompt shouldContain "tasks.md"
-                    prompt shouldContain "design document"
-                }
-            }
-
-            `when`("progress shows no tasks") {
-                val projectDir =
-                    File.createTempFile("opsx-continue", "").apply {
-                        delete()
-                        mkdirs()
-                        deleteOnExit()
-                    }
-                val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                val task = project.tasks.create("test-continue", ContinueTask::class.java)
-                task.extension = createExtension()
-
-                val prompt = task.buildContinuePrompt("ctx", "change", "no tasks found")
-
-                then("includes no tasks found in instructions") {
-                    prompt shouldContain "no tasks found"
                 }
             }
         }

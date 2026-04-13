@@ -39,7 +39,6 @@ abstract class BulkArchiveTask : DefaultTask() {
 
     internal fun findArchivable(changes: List<Change>): List<Change> =
         changes.filter { change ->
-            val status = ChangeStatus.from(change.status)
-            status in setOf(ChangeStatus.COMPLETED, ChangeStatus.DONE, ChangeStatus.VERIFIED)
+            ChangeStatus.from(change.status).canTransitionTo(ChangeStatus.ARCHIVED)
         }
 }

@@ -32,13 +32,13 @@ object AgentDispatcher {
         model: String = "",
         timeoutSeconds: Long = DEFAULT_TIMEOUT_SECONDS,
     ): Result {
-        val command = buildCommand(agent, model)
         val promptFile = createPromptFile(prompt)
         val logFile = createLogFile(agent)
 
         logger.quiet("opsx: dispatching to $agent (timeout ${timeoutSeconds}s, log: ${logFile.name})")
         logger.quiet("opsx: prompt size ${prompt.length} chars")
 
+        val command = buildCommand(agent, model)
         val result =
             runCatching {
                 val process =

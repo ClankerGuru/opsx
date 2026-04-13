@@ -21,7 +21,7 @@ abstract class FfTask : DefaultTask() {
             project.findProperty(Opsx.PROP_CHANGE)?.toString()
                 ?: error("Required: -P${Opsx.PROP_CHANGE}=\"change-name\"")
         val agent =
-            project.findProperty(Opsx.PROP_AGENT)?.toString()
+            project.findProperty(Opsx.PROP_AGENT)?.toString()?.takeUnless { it.isBlank() }
                 ?: extension.defaultAgent
         val model = project.findProperty(Opsx.PROP_MODEL)?.toString() ?: ""
 
@@ -34,7 +34,8 @@ abstract class FfTask : DefaultTask() {
 
         val context = promptBuilder.srcxContext()
         val changeCtx = promptBuilder.changeContext(change)
-        val fullPrompt = buildFfPrompt(context, changeCtx)
+        val relPath = change.dir.relativeTo(project.rootDir).path
+        val fullPrompt = buildFfPrompt(context, changeCtx, relPath)
 
         logger.quiet("opsx-ff: asking $agent to fast-forward '$changeName'...")
         val result = AgentDispatcher.dispatch(agent, fullPrompt, project.rootDir, model)
@@ -46,6 +47,7 @@ abstract class FfTask : DefaultTask() {
     internal fun buildFfPrompt(
         context: String,
         changeCtx: String,
+        changePath: String,
     ): String {
         val promptBuilder = PromptBuilder(project.rootDir)
         return promptBuilder.build(
@@ -54,9 +56,10 @@ abstract class FfTask : DefaultTask() {
             "Instructions" to
                 buildString {
                     appendLine("Fast-forward this change to match the current codebase state.")
+                    appendLine("Change artifacts are at: `$changePath/`")
                     appendLine("The codebase may have changed since this proposal was written.")
                     appendLine()
-                    appendLine("Update proposal.md and design.md to reflect:")
+                    appendLine("Update `$changePath/proposal.md` and `$changePath/design.md` to reflect:")
                     appendLine("- Any files that have moved, been renamed, or deleted")
                     appendLine("- New APIs or patterns that should be used instead")
                     appendLine("- Dependencies that have changed")

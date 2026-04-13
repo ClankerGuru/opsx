@@ -1,11 +1,11 @@
 package zone.clanker.opsx.workflow
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
-import io.kotest.matchers.ints.shouldBeLessThan
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldContain
 import java.io.File
 
 class AgentDispatcherTest :
@@ -85,20 +85,17 @@ class AgentDispatcherTest :
             }
         }
 
-        given("dispatch when agent binary is unavailable") {
-            `when`("agent process fails to start or exits with error") {
-                then("returns a well-formed Result with non-zero exit code") {
-                    val result =
+        given("dispatch when agent is unknown") {
+            `when`("agent is not supported by AgentDispatcher") {
+                then("throws IllegalStateException") {
+                    shouldThrow<IllegalStateException> {
                         AgentDispatcher.dispatch(
-                            agent = "claude",
+                            agent = "nonexistent-agent-binary-xyz",
                             prompt = "test prompt",
                             workDir = File(System.getProperty("user.dir")),
                             timeoutSeconds = 5L,
                         )
-                    // Agent not installed in CI — expect failure, but Result should be well-formed
-                    result shouldNotBe null
-                    result.logFile shouldNotBe null
-                    result.exitCode shouldNotBe 0
+                    }
                 }
             }
         }
@@ -142,35 +139,32 @@ class AgentDispatcherTest :
             }
         }
 
-        given("dispatch with nonexistent agent binary") {
-            `when`("agent binary does not exist on PATH") {
-                then("returns failure result gracefully") {
-                    val result =
+        given("dispatch with unknown agent name") {
+            `when`("agent is not in the supported list") {
+                then("throws immediately without starting a process") {
+                    shouldThrow<IllegalStateException> {
                         AgentDispatcher.dispatch(
-                            agent = "claude",
+                            agent = "nonexistent-agent-binary-xyz",
                             prompt = "test prompt for missing agent",
                             workDir = File(System.getProperty("java.io.tmpdir")),
                             timeoutSeconds = 2L,
                         )
-                    result shouldNotBe null
-                    // The agent is not installed, so it should fail
-                    result.logFile shouldNotBe null
+                    }.message shouldContain "Unknown agent"
                 }
             }
         }
 
-        given("dispatch with very short timeout") {
-            `when`("timeout is very short and command takes time") {
-                then("returns failure result") {
-                    val result =
+        given("dispatch with unknown agent and short timeout value") {
+            `when`("agent is rejected before timeout matters") {
+                then("throws without waiting for timeout") {
+                    shouldThrow<IllegalStateException> {
                         AgentDispatcher.dispatch(
-                            agent = "claude",
+                            agent = "nonexistent-agent-binary-xyz",
                             prompt = "timeout test prompt",
                             workDir = File(System.getProperty("java.io.tmpdir")),
                             timeoutSeconds = 1L,
                         )
-                    result shouldNotBe null
-                    result.exitCode shouldBeLessThan 1000
+                    }
                 }
             }
         }
