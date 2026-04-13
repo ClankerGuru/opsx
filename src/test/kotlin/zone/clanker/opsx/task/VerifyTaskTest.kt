@@ -245,10 +245,9 @@ class VerifyTaskTest :
                 val task = project.tasks.create("test-verify-agent", VerifyTask::class.java)
                 task.extension = createExtension().apply { defaultAgent = "nonexistent-agent-binary-xyz" }
 
-                then("throws GradleException when agent is not available") {
-                    // Agent binary does not exist — dispatch returns non-zero, which now throws
-                    val ex = shouldThrow<GradleException> { task.run() }
-                    ex.message shouldContain "agent exited with code"
+                then("throws when agent is unknown") {
+                    val ex = shouldThrow<IllegalStateException> { task.run() }
+                    ex.message shouldContain "Unknown agent"
                 }
             }
 
@@ -268,10 +267,9 @@ class VerifyTaskTest :
                 val task = project.tasks.create("test-verify-noconfig", VerifyTask::class.java)
                 task.extension = createExtension().apply { defaultAgent = "nonexistent-agent-binary-xyz" }
 
-                then("falls back to agent verify path and throws when agent unavailable") {
-                    // Agent binary does not exist, so it falls through the agent path and throws
-                    val ex = shouldThrow<GradleException> { task.run() }
-                    ex.message shouldContain "agent exited with code"
+                then("falls back to agent verify path and throws when agent unknown") {
+                    val ex = shouldThrow<IllegalStateException> { task.run() }
+                    ex.message shouldContain "Unknown agent"
                 }
             }
         }
