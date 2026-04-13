@@ -32,7 +32,6 @@ object AgentDispatcher {
         model: String = "",
         timeoutSeconds: Long = DEFAULT_TIMEOUT_SECONDS,
     ): Result {
-        val command = buildCommand(agent, model)
         val promptFile = createPromptFile(prompt)
         val logFile = createLogFile(agent)
 
@@ -41,6 +40,7 @@ object AgentDispatcher {
 
         val result =
             runCatching {
+                val command = buildCommand(agent, model)
                 val process =
                     ProcessBuilder(command)
                         .directory(workDir)

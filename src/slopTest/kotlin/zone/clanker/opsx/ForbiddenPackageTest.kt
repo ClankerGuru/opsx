@@ -37,8 +37,7 @@ class ForbiddenPackageTest :
                 then("no file lives in a forbidden package") {
                     mainScope.files.assertTrue {
                         val pkg = it.packagee?.name ?: ""
-                        val lastSegment = pkg.substringAfterLast(".")
-                        lastSegment !in forbidden
+                        pkg.split(".").none { segment -> segment in forbidden }
                     }
                 }
             }

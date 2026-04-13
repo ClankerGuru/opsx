@@ -1,6 +1,7 @@
 package zone.clanker.opsx.task
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.GradleException
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
@@ -76,7 +77,7 @@ abstract class VerifyTask : DefaultTask() {
             writer.updateStatus(changeDir, ChangeStatus.VERIFIED)
             logger.quiet("opsx-verify: '$changeName' all green — marked as verified")
         } else {
-            logger.warn("opsx-verify: verify command failed with exit code $result — not marking as verified")
+            throw GradleException("opsx-verify: verify command failed with exit code $result — not marking as verified")
         }
     }
 
@@ -101,7 +102,7 @@ abstract class VerifyTask : DefaultTask() {
             writer.updateStatus(change.dir, ChangeStatus.VERIFIED)
             logger.quiet("opsx-verify: '$changeName' marked as verified")
         } else {
-            logger.warn("opsx-verify: agent exited with code ${result.exitCode} — not marking as verified")
+            throw GradleException("opsx-verify: agent exited with code ${result.exitCode} — not marking as verified")
         }
     }
 

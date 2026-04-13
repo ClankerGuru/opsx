@@ -90,12 +90,12 @@ class AgentDispatcherTest :
                 then("returns a well-formed Result with non-zero exit code") {
                     val result =
                         AgentDispatcher.dispatch(
-                            agent = "claude",
+                            agent = "nonexistent-agent-binary-xyz",
                             prompt = "test prompt",
                             workDir = File(System.getProperty("user.dir")),
                             timeoutSeconds = 5L,
                         )
-                    // Agent not installed in CI — expect failure, but Result should be well-formed
+                    // Agent binary does not exist — expect failure, but Result should be well-formed
                     result shouldNotBe null
                     result.logFile shouldNotBe null
                     result.exitCode shouldNotBe 0
@@ -147,13 +147,13 @@ class AgentDispatcherTest :
                 then("returns failure result gracefully") {
                     val result =
                         AgentDispatcher.dispatch(
-                            agent = "claude",
+                            agent = "nonexistent-agent-binary-xyz",
                             prompt = "test prompt for missing agent",
                             workDir = File(System.getProperty("java.io.tmpdir")),
                             timeoutSeconds = 2L,
                         )
                     result shouldNotBe null
-                    // The agent is not installed, so it should fail
+                    // The agent binary does not exist, so it should fail
                     result.logFile shouldNotBe null
                 }
             }
@@ -164,7 +164,7 @@ class AgentDispatcherTest :
                 then("returns failure result") {
                     val result =
                         AgentDispatcher.dispatch(
-                            agent = "claude",
+                            agent = "nonexistent-agent-binary-xyz",
                             prompt = "timeout test prompt",
                             workDir = File(System.getProperty("java.io.tmpdir")),
                             timeoutSeconds = 1L,

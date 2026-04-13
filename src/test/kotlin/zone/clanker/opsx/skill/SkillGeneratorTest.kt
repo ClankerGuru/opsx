@@ -7,6 +7,7 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import org.gradle.testfixtures.ProjectBuilder
 import java.io.File
+import java.nio.file.Files
 
 class SkillGeneratorTest :
     BehaviorSpec({
@@ -116,19 +117,27 @@ class SkillGeneratorTest :
                 }
 
                 then("creates symlinks for claude") {
-                    File(tempDir, ".claude/commands/opsx-list.md").exists() shouldBe true
+                    val path = File(tempDir, ".claude/commands/opsx-list.md").toPath()
+                    Files.exists(path) shouldBe true
+                    Files.isSymbolicLink(path) shouldBe true
                 }
 
                 then("creates symlinks for copilot") {
-                    File(tempDir, ".github/prompts/opsx-list.md").exists() shouldBe true
+                    val path = File(tempDir, ".github/prompts/opsx-list.md").toPath()
+                    Files.exists(path) shouldBe true
+                    Files.isSymbolicLink(path) shouldBe true
                 }
 
                 then("creates symlinks for codex") {
-                    File(tempDir, ".codex/prompts/opsx-list.md").exists() shouldBe true
+                    val path = File(tempDir, ".codex/prompts/opsx-list.md").toPath()
+                    Files.exists(path) shouldBe true
+                    Files.isSymbolicLink(path) shouldBe true
                 }
 
                 then("creates symlinks for opencode") {
-                    File(tempDir, ".opencode/commands/opsx-list.md").exists() shouldBe true
+                    val path = File(tempDir, ".opencode/commands/opsx-list.md").toPath()
+                    Files.exists(path) shouldBe true
+                    Files.isSymbolicLink(path) shouldBe true
                 }
             }
         }
