@@ -31,6 +31,7 @@ class ApplyTaskTest :
                     }
                 File(changeDir, "proposal.md").writeText("Proposal content")
                 File(changeDir, "design.md").writeText("Design content")
+                File(changeDir, "tasks.md").writeText("Tasks content")
 
                 val change = Change("test", "active", emptyList(), changeDir)
 
@@ -57,6 +58,7 @@ class ApplyTaskTest :
                         deleteOnExit()
                     }
                 File(changeDir, "design.md").writeText("Design content")
+                File(changeDir, "tasks.md").writeText("Tasks content")
 
                 val change = Change("test", "active", emptyList(), changeDir)
 
@@ -85,6 +87,7 @@ class ApplyTaskTest :
                         deleteOnExit()
                     }
                 File(changeDir, "proposal.md").writeText("Proposal content")
+                File(changeDir, "tasks.md").writeText("Tasks content")
 
                 val change = Change("test", "active", emptyList(), changeDir)
 
@@ -125,11 +128,12 @@ class ApplyTaskTest :
                 val task = project.tasks.create("test-apply", ApplyTask::class.java)
                 task.extension = createExtension()
 
-                then("returns both missing files") {
+                then("returns all three missing files") {
                     val missing = task.validateForApply(change)
-                    missing shouldHaveSize 2
+                    missing shouldHaveSize 3
                     missing shouldContain "proposal.md"
                     missing shouldContain "design.md"
+                    missing shouldContain "tasks.md"
                 }
             }
         }

@@ -24,7 +24,7 @@ class FfTaskTest :
                 val task = project.tasks.create("test-ff", FfTask::class.java)
                 task.extension = createExtension()
 
-                val prompt = task.buildFfPrompt("codebase context", "change context")
+                val prompt = task.buildFfPrompt("codebase context", "change context", "opsx/changes/test")
 
                 then("includes codebase context") {
                     prompt shouldContain "codebase context"
@@ -66,7 +66,7 @@ class FfTaskTest :
                 val task = project.tasks.create("test-ff", FfTask::class.java)
                 task.extension = createExtension()
 
-                val prompt = task.buildFfPrompt("", "change context only")
+                val prompt = task.buildFfPrompt("", "change context only", "opsx/changes/test")
 
                 then("still includes change context") {
                     prompt shouldContain "change context only"
@@ -88,7 +88,8 @@ class FfTaskTest :
                 val task = project.tasks.create("test-ff", FfTask::class.java)
                 task.extension = createExtension()
 
-                val prompt = task.buildFfPrompt("large context blob", "change with proposal and design")
+                val prompt =
+                    task.buildFfPrompt("large context blob", "change with proposal and design", "opsx/changes/test")
 
                 then("includes all sections via PromptBuilder.build") {
                     prompt shouldContain "# Codebase Context"

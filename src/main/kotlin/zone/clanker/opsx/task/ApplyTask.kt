@@ -24,7 +24,7 @@ abstract class ApplyTask : DefaultTask() {
             project.findProperty(Opsx.PROP_CHANGE)?.toString()
                 ?: error("Required: -P${Opsx.PROP_CHANGE}=\"change-name-or-task-id\"")
         val agent =
-            project.findProperty(Opsx.PROP_AGENT)?.toString()
+            project.findProperty(Opsx.PROP_AGENT)?.toString()?.takeUnless { it.isBlank() }
                 ?: extension.defaultAgent
         val model = project.findProperty(Opsx.PROP_MODEL)?.toString() ?: ""
 
@@ -84,6 +84,7 @@ abstract class ApplyTask : DefaultTask() {
         buildList {
             if (!change.proposalFile.exists()) add("proposal.md")
             if (!change.designFile.exists()) add("design.md")
+            if (!change.tasksFile.exists()) add("tasks.md")
             val status = ChangeStatus.from(change.status)
             if (!status.canTransitionTo(ChangeStatus.IN_PROGRESS)) {
                 add("cannot transition from '${status.value}' to 'in-progress'")

@@ -51,10 +51,8 @@ class BulkArchiveTaskTest :
 
                 val changes =
                     listOf(
-                        Change("c1", "active", emptyList(), tempDir("chg1")),
-                        Change("c2", "draft", emptyList(), tempDir("chg2")),
-                        Change("c3", "pending", emptyList(), tempDir("chg3")),
-                        Change("c4", "in-progress", emptyList(), tempDir("chg4")),
+                        Change("c1", "in-progress", emptyList(), tempDir("chg1")),
+                        Change("c2", "archived", emptyList(), tempDir("chg2")),
                     )
 
                 then("returns empty list") {
@@ -82,9 +80,9 @@ class BulkArchiveTaskTest :
                 val changes =
                     listOf(
                         Change("archivable-1", "completed", emptyList(), tempDir("arc1")),
-                        Change("active-1", "active", emptyList(), tempDir("arc2")),
+                        Change("in-progress-1", "in-progress", emptyList(), tempDir("arc2")),
                         Change("archivable-2", "verified", emptyList(), tempDir("arc3")),
-                        Change("draft-1", "draft", emptyList(), tempDir("arc4")),
+                        Change("archived-1", "archived", emptyList(), tempDir("arc4")),
                     )
 
                 then("returns only archivable changes") {

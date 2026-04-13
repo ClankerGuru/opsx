@@ -18,7 +18,7 @@ abstract class OnboardTask : DefaultTask() {
     fun run() {
         val userPrompt = project.findProperty(Opsx.PROP_PROMPT)?.toString() ?: ""
         val agent =
-            project.findProperty(Opsx.PROP_AGENT)?.toString()
+            project.findProperty(Opsx.PROP_AGENT)?.toString()?.takeUnless { it.isBlank() }
                 ?: extension.defaultAgent
         val model = project.findProperty(Opsx.PROP_MODEL)?.toString() ?: ""
 

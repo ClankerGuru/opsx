@@ -20,7 +20,7 @@ abstract class ContinueTask : DefaultTask() {
             project.findProperty(Opsx.PROP_CHANGE)?.toString()
                 ?: error("Required: -P${Opsx.PROP_CHANGE}=\"change-name\"")
         val agent =
-            project.findProperty(Opsx.PROP_AGENT)?.toString()
+            project.findProperty(Opsx.PROP_AGENT)?.toString()?.takeUnless { it.isBlank() }
                 ?: extension.defaultAgent
         val model = project.findProperty(Opsx.PROP_MODEL)?.toString() ?: ""
 
@@ -47,9 +47,8 @@ abstract class ContinueTask : DefaultTask() {
     }
 
     internal fun detectProgress(tasksContent: String): String {
-        val done = Regex("- \\[x]", RegexOption.IGNORE_CASE).findAll(tasksContent).count()
-        val pending = Regex("- \\[ ]").findAll(tasksContent).count()
-        val total = done + pending
+        val done = Regex("""- \[[xX]]""").findAll(tasksContent).count()
+        val total = Regex("""- \[[ xX>!~]]""").findAll(tasksContent).count()
         return if (total == 0) "no tasks found" else "$done/$total tasks complete"
     }
 }

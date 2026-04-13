@@ -26,7 +26,7 @@ abstract class FeedbackTask : DefaultTask() {
             project.findProperty(Opsx.PROP_PROMPT)?.toString()
                 ?: error("Required: -P${Opsx.PROP_PROMPT}=\"your feedback\"")
         val agent =
-            project.findProperty(Opsx.PROP_AGENT)?.toString()
+            project.findProperty(Opsx.PROP_AGENT)?.toString()?.takeUnless { it.isBlank() }
                 ?: extension.defaultAgent
         val model = project.findProperty(Opsx.PROP_MODEL)?.toString() ?: ""
 

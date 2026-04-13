@@ -1,5 +1,6 @@
 package zone.clanker.opsx.model
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
@@ -33,8 +34,10 @@ class TaskStatusTest :
                 }
             }
             `when`("symbol is unknown") {
-                then("defaults to TODO") {
-                    TaskStatus.fromSymbol('?') shouldBe TaskStatus.TODO
+                then("throws IllegalArgumentException") {
+                    shouldThrow<IllegalArgumentException> {
+                        TaskStatus.fromSymbol('?')
+                    }
                 }
             }
         }

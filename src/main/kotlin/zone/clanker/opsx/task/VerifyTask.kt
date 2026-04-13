@@ -86,7 +86,7 @@ abstract class VerifyTask : DefaultTask() {
         writer: ChangeWriter,
     ) {
         val agent =
-            project.findProperty(Opsx.PROP_AGENT)?.toString()
+            project.findProperty(Opsx.PROP_AGENT)?.toString()?.takeUnless { it.isBlank() }
                 ?: extension.defaultAgent
         val model = project.findProperty(Opsx.PROP_MODEL)?.toString() ?: ""
 
