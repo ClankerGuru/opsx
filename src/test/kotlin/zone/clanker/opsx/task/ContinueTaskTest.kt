@@ -6,7 +6,7 @@ import org.gradle.testfixtures.ProjectBuilder
 import zone.clanker.opsx.Opsx
 import java.io.File
 
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
+private fun createConfig() = Opsx.SettingsExtension().toOpsxConfig()
 
 class ContinueTaskTest :
     BehaviorSpec({
@@ -22,7 +22,8 @@ class ContinueTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-continue", ContinueTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val tasksContent =
                     """
@@ -47,7 +48,8 @@ class ContinueTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-continue", ContinueTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val tasksContent =
                     """
@@ -70,7 +72,8 @@ class ContinueTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-continue", ContinueTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val tasksContent =
                     """
@@ -92,7 +95,8 @@ class ContinueTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-continue", ContinueTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("reports no tasks found") {
                     task.detectProgress("") shouldBe "no tasks found"
@@ -108,7 +112,8 @@ class ContinueTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-continue", ContinueTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val tasksContent = "Just some text without any task checkboxes."
 
@@ -126,7 +131,8 @@ class ContinueTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-continue", ContinueTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val tasksContent =
                     """

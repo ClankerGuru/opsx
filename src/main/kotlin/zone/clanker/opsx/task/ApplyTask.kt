@@ -1,35 +1,49 @@
 package zone.clanker.opsx.task
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
-import zone.clanker.opsx.Opsx
 import zone.clanker.opsx.model.Change
 import zone.clanker.opsx.model.ChangeStatus
+import zone.clanker.opsx.model.OpsxConfig
 import zone.clanker.opsx.workflow.ChangeReader
 import zone.clanker.opsx.workflow.ChangeWriter
 import zone.clanker.opsx.workflow.TaskExecutor
 import zone.clanker.opsx.workflow.TaskParser
+import java.io.File
 
 /** Applies a change by executing atomic tasks via TaskExecutor. */
 @DisableCachingByDefault(because = "Runs an external agent process")
 abstract class ApplyTask : DefaultTask() {
     @get:Internal
-    lateinit var extension: Opsx.SettingsExtension
+    abstract val rootDir: Property<File>
+
+    @get:Internal
+    abstract val config: Property<OpsxConfig>
+
+    @get:Internal
+    abstract val changeName: Property<String>
+
+    @get:Internal
+    abstract val agent: Property<String>
+
+    @get:Internal
+    abstract val model: Property<String>
 
     @TaskAction
     fun run() {
         val changeInput =
-            project.findProperty(Opsx.PROP_CHANGE)?.toString()
-                ?: error("Required: -P${Opsx.PROP_CHANGE}=\"change-name-or-task-id\"")
-        val agent =
-            project.findProperty(Opsx.PROP_AGENT)?.toString()?.takeUnless { it.isBlank() }
-                ?: extension.defaultAgent
-        val model = project.findProperty(Opsx.PROP_MODEL)?.toString() ?: ""
+            changeName.orNull
+                ?: error("Required: -P${zone.clanker.opsx.Opsx.PROP_CHANGE}=\"change-name-or-task-id\"")
+        val agentVal = agent.get()
+        val modelVal = model.getOrElse("")
+        val root = rootDir.get()
+        val cfg = config.get()
 
-        val reader = ChangeReader(project.rootDir, extension)
-        val writer = ChangeWriter(project.rootDir, extension)
+        val reader = ChangeReader(root, cfg)
+        val writer = ChangeWriter(root, cfg)
 
         val resolved = resolveTarget(reader, changeInput)
         val change = resolved.first
@@ -45,9 +59,9 @@ abstract class ApplyTask : DefaultTask() {
         val executor =
             TaskExecutor(
                 changeDir = change.dir,
-                agent = agent,
-                model = model,
-                workDir = project.rootDir,
+                agent = agentVal,
+                model = modelVal,
+                workDir = root,
             )
 
         val suffix = if (taskId != null) " (task $taskId)" else ""

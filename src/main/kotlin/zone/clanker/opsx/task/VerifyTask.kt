@@ -2,12 +2,13 @@ package zone.clanker.opsx.task
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
-import zone.clanker.opsx.Opsx
 import zone.clanker.opsx.model.ChangeConfig
 import zone.clanker.opsx.model.ChangeStatus
+import zone.clanker.opsx.model.OpsxConfig
 import zone.clanker.opsx.workflow.AgentDispatcher
 import zone.clanker.opsx.workflow.ChangeReader
 import zone.clanker.opsx.workflow.ChangeWriter
@@ -19,49 +20,64 @@ import java.util.concurrent.TimeUnit
 @DisableCachingByDefault(because = "Runs an external process")
 abstract class VerifyTask : DefaultTask() {
     @get:Internal
-    lateinit var extension: Opsx.SettingsExtension
+    abstract val rootDir: Property<File>
+
+    @get:Internal
+    abstract val config: Property<OpsxConfig>
+
+    @get:Internal
+    abstract val changeName: Property<String>
+
+    @get:Internal
+    abstract val agent: Property<String>
+
+    @get:Internal
+    abstract val model: Property<String>
 
     @TaskAction
     fun run() {
-        val changeName =
-            project.findProperty(Opsx.PROP_CHANGE)?.toString()
-                ?: error("Required: -P${Opsx.PROP_CHANGE}=\"change-name\"")
+        val name =
+            changeName.orNull
+                ?: error("Required: -P${zone.clanker.opsx.Opsx.PROP_CHANGE}=\"change-name\"")
 
-        val reader = ChangeReader(project.rootDir, extension)
-        val writer = ChangeWriter(project.rootDir, extension)
+        val root = rootDir.get()
+        val cfg = config.get()
+        val reader = ChangeReader(root, cfg)
+        val writer = ChangeWriter(root, cfg)
 
         val change =
-            reader.readAll().find { it.name == changeName }
-                ?: error("Change not found: $changeName")
+            reader.readAll().find { it.name == name }
+                ?: error("Change not found: $name")
 
-        val config = ChangeConfig.parse(File(change.dir, ".opsx.yaml"))
+        val changeConfig = ChangeConfig.parse(File(change.dir, ".opsx.yaml"))
 
         // Ensure the config file exists so status updates succeed
-        if (config == null) {
-            writer.writeConfig(change.dir, changeName, ChangeStatus.from(change.status))
+        if (changeConfig == null) {
+            writer.writeConfig(change.dir, name, ChangeStatus.from(change.status))
         }
 
-        if (config != null && config.verify.isNotBlank()) {
-            runVerifyCommand(config.verify, changeName, change.dir, writer)
+        if (changeConfig != null && changeConfig.verify.isNotBlank()) {
+            runVerifyCommand(changeConfig.verify, name, change.dir, writer, root)
         } else {
-            runAgentVerify(changeName, change, writer)
+            runAgentVerify(name, change, writer, root)
         }
     }
 
     private fun runVerifyCommand(
         verifyCommand: String,
-        changeName: String,
+        name: String,
         changeDir: File,
         writer: ChangeWriter,
+        root: File,
     ) {
-        logger.quiet("opsx-verify: running verify command for '$changeName'...")
+        logger.quiet("opsx-verify: running verify command for '$name'...")
         logger.quiet("opsx-verify: $verifyCommand")
 
         val result =
             runCatching {
                 val process =
                     ProcessBuilder("sh", "-c", verifyCommand)
-                        .directory(project.rootDir)
+                        .directory(root)
                         .redirectOutput(ProcessBuilder.Redirect.INHERIT)
                         .redirectError(ProcessBuilder.Redirect.INHERIT)
                         .start()
@@ -75,42 +91,42 @@ abstract class VerifyTask : DefaultTask() {
 
         if (result == 0) {
             writer.updateStatus(changeDir, ChangeStatus.VERIFIED)
-            logger.quiet("opsx-verify: '$changeName' all green — marked as verified")
+            logger.quiet("opsx-verify: '$name' all green — marked as verified")
         } else {
             throw GradleException("opsx-verify: verify command failed with exit code $result — not marking as verified")
         }
     }
 
     private fun runAgentVerify(
-        changeName: String,
+        name: String,
         change: zone.clanker.opsx.model.Change,
         writer: ChangeWriter,
+        root: File,
     ) {
-        val agent =
-            project.findProperty(Opsx.PROP_AGENT)?.toString()?.takeUnless { it.isBlank() }
-                ?: extension.defaultAgent
-        val model = project.findProperty(Opsx.PROP_MODEL)?.toString() ?: ""
+        val agentVal = agent.get()
+        val modelVal = model.getOrElse("")
 
-        val promptBuilder = PromptBuilder(project.rootDir)
+        val promptBuilder = PromptBuilder(root)
         val context = promptBuilder.srcxContext()
         val changeCtx = promptBuilder.changeContext(change)
-        val fullPrompt = buildVerifyPrompt(context, changeCtx)
+        val fullPrompt = buildVerifyPrompt(root, context, changeCtx)
 
-        logger.quiet("opsx-verify: asking $agent to verify '$changeName'...")
-        val result = AgentDispatcher.dispatch(agent, fullPrompt, project.rootDir, model)
+        logger.quiet("opsx-verify: asking $agentVal to verify '$name'...")
+        val result = AgentDispatcher.dispatch(agentVal, fullPrompt, root, modelVal)
         if (result.exitCode == 0) {
             writer.updateStatus(change.dir, ChangeStatus.VERIFIED)
-            logger.quiet("opsx-verify: '$changeName' marked as verified")
+            logger.quiet("opsx-verify: '$name' marked as verified")
         } else {
             throw GradleException("opsx-verify: agent exited with code ${result.exitCode} — not marking as verified")
         }
     }
 
     internal fun buildVerifyPrompt(
+        root: File,
         context: String,
         changeCtx: String,
     ): String {
-        val promptBuilder = PromptBuilder(project.rootDir)
+        val promptBuilder = PromptBuilder(root)
         return promptBuilder.build(
             "Codebase Context" to context,
             "Change" to changeCtx,

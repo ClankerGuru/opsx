@@ -1,6 +1,9 @@
 package zone.clanker.opsx.task
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 import zone.clanker.opsx.skill.SkillGenerator
@@ -10,11 +13,18 @@ import java.nio.file.Files
 /** Removes all generated skill files, symlinks, instruction markers, and srcx/wrkx output. */
 @DisableCachingByDefault(because = "Deletes generated files")
 abstract class CleanTask : DefaultTask() {
+    @get:Internal
+    abstract val rootDir: Property<File>
+
+    @get:Internal
+    abstract val includedBuildDirs: ListProperty<File>
+
     @TaskAction
     fun run() {
         var cleaned = false
         val home = File(System.getProperty("user.home"))
         val sourceDir = File(home, SkillGenerator.SKILLS_DIR)
+        val root = rootDir.get()
 
         // Remove source skills
         if (sourceDir.exists()) {
@@ -39,7 +49,7 @@ abstract class CleanTask : DefaultTask() {
         }
 
         // Remove OPSX markers from instruction files
-        SkillGenerator.instructionFiles(project.rootDir).forEach { file ->
+        SkillGenerator.instructionFiles(root).forEach { file ->
             if (file.exists()) {
                 removeMarkers(file)
                 logger.quiet("opsx-clean: removed OPSX section from ${file.name}")
@@ -47,11 +57,11 @@ abstract class CleanTask : DefaultTask() {
             }
         }
 
-        cleanDir(project.rootDir, ".srcx")?.let { cleaned = true }
+        cleanDir(root, root, ".srcx")?.let { cleaned = true }
 
-        project.gradle.includedBuilds.forEach { build ->
-            cleanDir(build.projectDir, ".srcx")?.let { cleaned = true }
-            cleanDir(build.projectDir, ".wrkx")?.let { cleaned = true }
+        includedBuildDirs.get().forEach { buildDir ->
+            cleanDir(root, buildDir, ".srcx")?.let { cleaned = true }
+            cleanDir(root, buildDir, ".wrkx")?.let { cleaned = true }
         }
 
         if (!cleaned) logger.quiet("opsx-clean: nothing to clean")
@@ -74,6 +84,7 @@ abstract class CleanTask : DefaultTask() {
     }
 
     private fun cleanDir(
+        root: File,
         baseDir: File,
         dirName: String,
     ): Boolean? {
@@ -81,7 +92,7 @@ abstract class CleanTask : DefaultTask() {
         if (!dir.exists()) return null
         val count = dir.walkTopDown().filter { it.isFile }.count()
         dir.deleteRecursively()
-        val rel = if (baseDir == project.rootDir) dirName else "${baseDir.name}/$dirName"
+        val rel = if (baseDir == root) dirName else "${baseDir.name}/$dirName"
         logger.quiet("opsx-clean: deleted $rel ($count files)")
         return true
     }

@@ -11,41 +11,36 @@ import java.nio.file.Files
 
 class SkillGeneratorTest :
     BehaviorSpec({
-        given("SkillGenerator.discoverTasks") {
-            `when`("project has tasks in tracked groups") {
+        given("SkillGenerator with tracked tasks") {
+            `when`("initialized with tracked group tasks") {
                 val project = ProjectBuilder.builder().build()
-                project.tasks.register("opsx-list") {
-                    it.group = "opsx"
-                    it.description = "List all changes"
-                }
-                project.tasks.register("some-other-task") {
-                    it.group = "build"
-                    it.description = "Not tracked"
-                }
+                val tasks =
+                    listOf(
+                        TaskInfo("opsx-list", "opsx", "List all changes"),
+                    )
 
-                val generator = SkillGenerator(project)
+                val generator = SkillGenerator(project.projectDir, tasks, emptyList())
 
-                then("discovers only tracked group tasks") {
-                    val tasks = generator.discoverTasks()
-                    tasks.map { it.name } shouldContain "opsx-list"
-                    tasks.none { it.name == "some-other-task" } shouldBe true
+                then("generator has only tracked group tasks") {
+                    val content = generator.buildCommandFile(tasks.first(), emptyList())
+                    content shouldContain "opsx-list"
                 }
             }
 
-            `when`("project has no tasks in tracked groups") {
+            `when`("initialized with empty task list") {
                 val project = ProjectBuilder.builder().build()
-                val generator = SkillGenerator(project)
+                val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
 
-                then("returns empty list") {
-                    val tasks = generator.discoverTasks()
-                    tasks.none { it.group in SkillGenerator.TRACKED_GROUPS } shouldBe true
+                then("still generates instruction files") {
+                    val result = generator.generate()
+                    result.isNotEmpty() shouldBe true
                 }
             }
         }
 
         given("SkillGenerator.buildCommandFile") {
             val project = ProjectBuilder.builder().build()
-            val generator = SkillGenerator(project)
+            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
             val task = TaskInfo("opsx-sync", "opsx", "Generate slash commands for all agents")
 
             `when`("building command file content") {
@@ -91,12 +86,12 @@ class SkillGeneratorTest :
                         .withProjectDir(tempDir)
                         .build()
 
-                val generator = SkillGenerator(project)
                 val tasks =
                     listOf(
                         TaskInfo("opsx-list", "opsx", "List changes"),
                         TaskInfo("opsx-sync", "opsx", "Sync skills"),
                     )
+                val generator = SkillGenerator(tempDir, tasks, emptyList())
 
                 generator.generateSkillFiles(tasks, emptyList())
                 System.setProperty("user.home", origHome)
@@ -144,7 +139,7 @@ class SkillGeneratorTest :
 
         given("SkillGenerator.buildCommandFile for agent-dispatching task") {
             val project = ProjectBuilder.builder().build()
-            val generator = SkillGenerator(project)
+            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
             val task = TaskInfo("opsx-onboard", "opsx", "Onboard a new contributor")
 
             `when`("task is in AGENT_TASKS") {
@@ -159,7 +154,7 @@ class SkillGeneratorTest :
 
         given("SkillGenerator.buildCommandFile for non-agent task") {
             val project = ProjectBuilder.builder().build()
-            val generator = SkillGenerator(project)
+            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
             val task = TaskInfo("opsx-status", "opsx", "Show all changes and their status")
 
             `when`("task is not in AGENT_TASKS") {
@@ -173,7 +168,7 @@ class SkillGeneratorTest :
 
         given("SkillGenerator.buildCommandFile with empty description") {
             val project = ProjectBuilder.builder().build()
-            val generator = SkillGenerator(project)
+            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
             val task = TaskInfo("my-task", "opsx", "")
 
             `when`("description is empty") {
@@ -203,12 +198,8 @@ class SkillGeneratorTest :
                         .withProjectDir(tempDir)
                         .build()
 
-                project.tasks.register("opsx-test-task") {
-                    it.group = "opsx"
-                    it.description = "A test task"
-                }
-
-                val generator = SkillGenerator(project)
+                val tasks = listOf(TaskInfo("opsx-test-task", "opsx", "A test task"))
+                val generator = SkillGenerator(tempDir, tasks, emptyList())
                 generator.generate()
 
                 System.setProperty("user.home", origHome)
@@ -259,12 +250,12 @@ class SkillGeneratorTest :
                         .withProjectDir(tempDir)
                         .build()
 
-                val generator = SkillGenerator(project)
                 val tasks =
                     listOf(
                         TaskInfo("opsx-list", "opsx", "List changes"),
                         TaskInfo("opsx-sync", "opsx", "Sync skills"),
                     )
+                val generator = SkillGenerator(tempDir, tasks, emptyList())
 
                 generator.generateInstructionFiles(tasks, emptyList())
 
@@ -348,8 +339,8 @@ class SkillGeneratorTest :
                         .withProjectDir(tempDir)
                         .build()
 
-                val generator = SkillGenerator(project)
                 val tasks = listOf(TaskInfo("opsx-status", "opsx", "Show status"))
+                val generator = SkillGenerator(tempDir, tasks, emptyList())
 
                 generator.generateInstructionFiles(tasks, emptyList())
 
@@ -391,8 +382,8 @@ class SkillGeneratorTest :
                         .withProjectDir(tempDir)
                         .build()
 
-                val generator = SkillGenerator(project)
                 val tasks = listOf(TaskInfo("opsx-propose", "opsx", "Propose a change"))
+                val generator = SkillGenerator(tempDir, tasks, emptyList())
 
                 generator.generateInstructionFiles(tasks, emptyList())
 
@@ -431,10 +422,10 @@ class SkillGeneratorTest :
                         .withProjectDir(tempDir)
                         .build()
 
-                val generator = SkillGenerator(project)
                 val tasks = listOf(TaskInfo("opsx-list", "opsx", "List changes"))
-                // Use real includedBuilds from project (will be empty in test)
-                generator.generateInstructionFiles(tasks, project.gradle.includedBuilds)
+                // Use empty build names (will be empty in test)
+                val generator = SkillGenerator(tempDir, tasks, emptyList())
+                generator.generateInstructionFiles(tasks, emptyList())
 
                 then("generates without included builds section when empty") {
                     val content = File(tempDir, "CLAUDE.md").readText()
@@ -461,12 +452,8 @@ class SkillGeneratorTest :
                         .withProjectDir(tempDir)
                         .build()
 
-                project.tasks.register("opsx-test-instr") {
-                    it.group = "opsx"
-                    it.description = "Test instruction generation"
-                }
-
-                val generator = SkillGenerator(project)
+                val tasks = listOf(TaskInfo("opsx-test-instr", "opsx", "Test instruction generation"))
+                val generator = SkillGenerator(tempDir, tasks, emptyList())
                 generator.generate()
 
                 System.setProperty("user.home", origHome)
@@ -489,29 +476,11 @@ class SkillGeneratorTest :
 
         given("SkillGenerator.buildCommandFile with included builds") {
             val project = ProjectBuilder.builder().build()
-            val generator = SkillGenerator(project)
+            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
             val task = TaskInfo("opsx-list", "opsx", "List changes")
 
             `when`("builds collection is not empty") {
-                // Create a mock IncludedBuild via a real composite build setup
-                val tempDir =
-                    File.createTempFile("opsx-incl-build", "").also {
-                        it.delete()
-                        it.mkdirs()
-                    }
-                tempDir.deleteOnExit()
-
-                // Use buildList to create a list of mock IncludedBuild objects
-                val mockBuild =
-                    object : org.gradle.api.initialization.IncludedBuild {
-                        override fun getName(): String = "my-included-build"
-
-                        override fun getProjectDir(): File = tempDir
-
-                        @Suppress("MaxLineLength")
-                        override fun task(p0: String): org.gradle.api.tasks.TaskReference = error("stub")
-                    }
-                val content = generator.buildCommandFile(task, listOf(mockBuild))
+                val content = generator.buildCommandFile(task, listOf("my-included-build"))
 
                 then("contains Included Builds section") {
                     content shouldContain "## Included Builds"
@@ -522,7 +491,7 @@ class SkillGeneratorTest :
 
         given("SkillGenerator.buildCommandFile for task with TASK_USAGE flags") {
             val project = ProjectBuilder.builder().build()
-            val generator = SkillGenerator(project)
+            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
 
             `when`("task is opsx-propose which has flags and notes") {
                 val task = TaskInfo("opsx-propose", "opsx", "Propose a new change")

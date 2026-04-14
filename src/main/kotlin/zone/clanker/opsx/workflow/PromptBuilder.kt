@@ -1,7 +1,7 @@
 package zone.clanker.opsx.workflow
 
-import zone.clanker.opsx.Opsx
 import zone.clanker.opsx.model.Change
+import zone.clanker.opsx.model.OpsxConfig
 import java.io.File
 
 class PromptBuilder(
@@ -15,19 +15,19 @@ class PromptBuilder(
         return content.take(maxChars) + "\n\n[... truncated at $maxChars chars]"
     }
 
-    fun projectDescription(extension: Opsx.SettingsExtension): String {
-        val file = File(rootDir, "${extension.outputDir}/${extension.projectFile}")
+    fun projectDescription(config: OpsxConfig): String {
+        val file = File(rootDir, "${config.outputDir}/${config.projectFile}")
         return if (file.exists()) file.readText() else ""
     }
 
     fun specContent(
-        extension: Opsx.SettingsExtension,
+        config: OpsxConfig,
         specName: String,
     ): String {
         require(!specName.contains("..") && !specName.contains("/") && !specName.contains("\\")) {
             "Invalid spec name '$specName': must not contain '..', '/', or '\\'"
         }
-        val file = File(rootDir, "${extension.outputDir}/${extension.specsDir}/$specName.md")
+        val file = File(rootDir, "${config.outputDir}/${config.specsDir}/$specName.md")
         return if (file.exists()) file.readText() else ""
     }
 

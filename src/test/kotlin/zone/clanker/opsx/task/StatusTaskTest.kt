@@ -6,7 +6,7 @@ import zone.clanker.opsx.Opsx
 import zone.clanker.opsx.model.ChangeConfig
 import java.io.File
 
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
+private fun createConfig() = Opsx.SettingsExtension().toOpsxConfig()
 
 class StatusTaskTest :
     BehaviorSpec({
@@ -22,7 +22,8 @@ class StatusTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-status", StatusTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("reports no changes") {
                     task.run()
@@ -60,7 +61,8 @@ class StatusTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-status", StatusTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("shows status with file list and task progress") {
                     task.run()
@@ -83,7 +85,8 @@ class StatusTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-status", StatusTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("shows no artifacts label") {
                     task.run()
@@ -111,7 +114,8 @@ class StatusTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-status", StatusTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("shows dependency info") {
                     task.run()
@@ -164,7 +168,8 @@ class StatusTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-status", StatusTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("groups changes by status in lifecycle order") {
                     task.run()
@@ -187,7 +192,8 @@ class StatusTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-status", StatusTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("shows custom status in the catch-all section") {
                     task.run()
@@ -233,7 +239,8 @@ class StatusTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-status", StatusTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("shows task progress with running and blocked counts") {
                     task.run()
@@ -257,7 +264,8 @@ class StatusTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-status", StatusTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("shows no task progress") {
                     task.run()
@@ -282,7 +290,8 @@ class StatusTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-status", StatusTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("includes feedback in files list") {
                     task.run()

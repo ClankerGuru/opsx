@@ -10,7 +10,7 @@ import zone.clanker.opsx.Opsx
 import zone.clanker.opsx.model.ChangeConfig
 import java.io.File
 
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
+private fun createConfig() = Opsx.SettingsExtension().toOpsxConfig()
 
 class VerifyTaskTest :
     BehaviorSpec({
@@ -26,10 +26,12 @@ class VerifyTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-verify", VerifyTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val prompt =
                     task.buildVerifyPrompt(
+                        projectDir,
                         "codebase context content",
                         "change context content",
                     )
@@ -61,10 +63,12 @@ class VerifyTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-verify", VerifyTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val prompt =
                     task.buildVerifyPrompt(
+                        projectDir,
                         "",
                         "change context content",
                     )
@@ -91,10 +95,12 @@ class VerifyTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-verify", VerifyTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val prompt =
                     task.buildVerifyPrompt(
+                        projectDir,
                         "codebase context",
                         "",
                     )
@@ -121,9 +127,10 @@ class VerifyTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-verify", VerifyTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
-                val prompt = task.buildVerifyPrompt("", "")
+                val prompt = task.buildVerifyPrompt(projectDir, "", "")
 
                 then("only includes instructions section") {
                     prompt shouldNotContain "# Codebase Context"
@@ -145,7 +152,8 @@ class VerifyTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-verify-no-prop", VerifyTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("throws error requiring change property") {
                     val ex = shouldThrow<IllegalStateException> { task.run() }
@@ -161,9 +169,10 @@ class VerifyTaskTest :
                         deleteOnExit()
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                project.extensions.extraProperties.set(Opsx.PROP_CHANGE, "nonexistent")
                 val task = project.tasks.create("test-verify-missing", VerifyTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
+                task.changeName.set("nonexistent")
 
                 then("throws error that change was not found") {
                     val ex = shouldThrow<IllegalStateException> { task.run() }
@@ -187,9 +196,10 @@ class VerifyTaskTest :
                 )
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                project.extensions.extraProperties.set(Opsx.PROP_CHANGE, "test-cmd")
                 val task = project.tasks.create("test-verify-cmd-ok", VerifyTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
+                task.changeName.set("test-cmd")
 
                 then("runs verify command and marks as verified") {
                     task.run()
@@ -213,9 +223,10 @@ class VerifyTaskTest :
                 )
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                project.extensions.extraProperties.set(Opsx.PROP_CHANGE, "test-fail")
                 val task = project.tasks.create("test-verify-cmd-fail", VerifyTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
+                task.changeName.set("test-fail")
 
                 then("throws GradleException and does not mark as verified") {
                     val ex = shouldThrow<GradleException> { task.run() }
@@ -241,9 +252,12 @@ class VerifyTaskTest :
                 File(changeDir, "proposal.md").writeText("proposal content")
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                project.extensions.extraProperties.set(Opsx.PROP_CHANGE, "test-agent")
                 val task = project.tasks.create("test-verify-agent", VerifyTask::class.java)
-                task.extension = createExtension().apply { defaultAgent = "nonexistent-agent-binary-xyz" }
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
+                task.changeName.set("test-agent")
+                task.agent.set("nonexistent-agent-binary-xyz")
+                task.model.set("")
 
                 then("throws when agent is unknown") {
                     val ex = shouldThrow<IllegalStateException> { task.run() }
@@ -263,9 +277,12 @@ class VerifyTaskTest :
                 // No .opsx.yaml — ChangeReader will use dir name and default status
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                project.extensions.extraProperties.set(Opsx.PROP_CHANGE, "no-config")
                 val task = project.tasks.create("test-verify-noconfig", VerifyTask::class.java)
-                task.extension = createExtension().apply { defaultAgent = "nonexistent-agent-binary-xyz" }
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
+                task.changeName.set("no-config")
+                task.agent.set("nonexistent-agent-binary-xyz")
+                task.model.set("")
 
                 then("falls back to agent verify path and throws when agent unknown") {
                     val ex = shouldThrow<IllegalStateException> { task.run() }

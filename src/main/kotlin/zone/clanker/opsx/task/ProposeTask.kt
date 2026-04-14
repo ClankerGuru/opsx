@@ -1,11 +1,12 @@
 package zone.clanker.opsx.task
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
-import zone.clanker.opsx.Opsx
 import zone.clanker.opsx.model.ChangeStatus
+import zone.clanker.opsx.model.OpsxConfig
 import zone.clanker.opsx.workflow.AgentDispatcher
 import zone.clanker.opsx.workflow.ChangeWriter
 import zone.clanker.opsx.workflow.PromptBuilder
@@ -15,55 +16,74 @@ import java.io.File
 @DisableCachingByDefault(because = "Runs an external agent process")
 abstract class ProposeTask : DefaultTask() {
     @get:Internal
-    lateinit var extension: Opsx.SettingsExtension
+    abstract val rootDir: Property<File>
+
+    @get:Internal
+    abstract val config: Property<OpsxConfig>
+
+    @get:Internal
+    abstract val spec: Property<String>
+
+    @get:Internal
+    abstract val prompt: Property<String>
+
+    @get:Internal
+    abstract val changeNameOverride: Property<String>
+
+    @get:Internal
+    abstract val agent: Property<String>
+
+    @get:Internal
+    abstract val model: Property<String>
 
     @TaskAction
     fun run() {
-        val spec = project.findProperty(Opsx.PROP_SPEC)?.toString()
-        val prompt = project.findProperty(Opsx.PROP_PROMPT)?.toString()
-        val nameOverride = project.findProperty(Opsx.PROP_CHANGE_NAME)?.toString()
-        val agent =
-            project.findProperty(Opsx.PROP_AGENT)?.toString()?.takeUnless { it.isBlank() }
-                ?: extension.defaultAgent
-        val model = project.findProperty(Opsx.PROP_MODEL)?.toString() ?: ""
+        val specVal = spec.orNull
+        val promptVal = prompt.orNull
+        val nameOverride = changeNameOverride.orNull
+        val agentVal = agent.get()
+        val modelVal = model.getOrElse("")
 
-        require(spec != null || prompt != null) {
-            "Required: -P${Opsx.PROP_SPEC}=\"spec-name\" or -P${Opsx.PROP_PROMPT}=\"describe the change\""
+        require(specVal != null || promptVal != null) {
+            "Required: -P${zone.clanker.opsx.Opsx.PROP_SPEC}=\"spec-name\" or " +
+                "-P${zone.clanker.opsx.Opsx.PROP_PROMPT}=\"describe the change\""
         }
-        require(spec == null || prompt == null) {
-            "Use either -P${Opsx.PROP_SPEC} or -P${Opsx.PROP_PROMPT}, not both"
+        require(specVal == null || promptVal == null) {
+            "Use either -P${zone.clanker.opsx.Opsx.PROP_SPEC} or -P${zone.clanker.opsx.Opsx.PROP_PROMPT}, not both"
         }
 
-        val changeName = nameOverride ?: resolveChangeName(spec, prompt)
-        val promptBuilder = PromptBuilder(project.rootDir)
-        val writer = ChangeWriter(project.rootDir, extension)
+        val root = rootDir.get()
+        val cfg = config.get()
+        val changeName = nameOverride ?: resolveChangeName(specVal, promptVal)
+        val promptBuilder = PromptBuilder(root)
+        val writer = ChangeWriter(root, cfg)
 
-        if (spec != null) {
-            require(promptBuilder.specContent(extension, spec).isNotBlank()) {
-                "Spec not found: $spec"
+        if (specVal != null) {
+            require(promptBuilder.specContent(cfg, specVal).isNotBlank()) {
+                "Spec not found: $specVal"
             }
         }
 
         val changeDir = writer.createChangeDir(changeName)
         writer.writeConfig(changeDir, changeName, ChangeStatus.DRAFT)
 
-        if (spec != null) {
-            val specContent = promptBuilder.specContent(extension, spec)
+        if (specVal != null) {
+            val specContent = promptBuilder.specContent(cfg, specVal)
             writer.writeProposal(changeDir, specContent)
             writer.writeDesignSkeleton(changeDir, changeName)
             writer.writeTasksSkeleton(changeDir, changeName)
-            logger.quiet("opsx-propose: created change '$changeName' from spec '$spec'")
+            logger.quiet("opsx-propose: created change '$changeName' from spec '$specVal'")
         } else {
             val context = promptBuilder.srcxContext()
-            val projectDesc = promptBuilder.projectDescription(extension)
-            val fullPrompt = buildProposalPrompt(context, projectDesc, prompt, changeDir)
+            val projectDesc = promptBuilder.projectDescription(cfg)
+            val fullPrompt = buildProposalPrompt(root, context, projectDesc, promptVal, changeDir)
 
-            writer.writeProposal(changeDir, "# Proposal: $changeName\n\n$prompt\n")
+            writer.writeProposal(changeDir, "# Proposal: $changeName\n\n$promptVal\n")
             writer.writeDesignSkeleton(changeDir, changeName)
             writer.writeTasksSkeleton(changeDir, changeName)
 
-            logger.quiet("opsx-propose: asking $agent to draft proposal for '$changeName'...")
-            val result = AgentDispatcher.dispatch(agent, fullPrompt, project.rootDir, model)
+            logger.quiet("opsx-propose: asking $agentVal to draft proposal for '$changeName'...")
+            val result = AgentDispatcher.dispatch(agentVal, fullPrompt, root, modelVal)
             if (result.exitCode != 0) {
                 logger.warn("opsx-propose: agent exited with code ${result.exitCode}")
             }
@@ -87,13 +107,14 @@ abstract class ProposeTask : DefaultTask() {
     }
 
     internal fun buildProposalPrompt(
+        root: File,
         context: String,
         projectDesc: String,
         prompt: String?,
         changeDir: File,
     ): String {
-        val promptBuilder = PromptBuilder(project.rootDir)
-        val relPath = changeDir.relativeTo(project.rootDir).path
+        val promptBuilder = PromptBuilder(root)
+        val relPath = changeDir.relativeTo(root).path
         val sections =
             mutableListOf<Pair<String, String>>().apply {
                 add("Codebase Context" to context)

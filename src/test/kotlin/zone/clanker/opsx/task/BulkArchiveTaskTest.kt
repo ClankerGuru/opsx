@@ -9,7 +9,7 @@ import zone.clanker.opsx.Opsx
 import zone.clanker.opsx.model.Change
 import java.io.File
 
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
+private fun createConfig() = Opsx.SettingsExtension().toOpsxConfig()
 
 private fun tempDir(prefix: String): File =
     File.createTempFile(prefix, "").apply {
@@ -27,7 +27,8 @@ class BulkArchiveTaskTest :
                 val projectDir = tempDir("opsx-bulk-proj")
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-bulk-archive", BulkArchiveTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val changes =
                     listOf(
@@ -47,7 +48,8 @@ class BulkArchiveTaskTest :
                 val projectDir = tempDir("opsx-bulk-proj")
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-bulk-archive", BulkArchiveTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val changes =
                     listOf(
@@ -64,7 +66,8 @@ class BulkArchiveTaskTest :
                 val projectDir = tempDir("opsx-bulk-proj")
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-bulk-archive", BulkArchiveTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("returns empty list") {
                     task.findArchivable(emptyList()).shouldBeEmpty()
@@ -75,7 +78,8 @@ class BulkArchiveTaskTest :
                 val projectDir = tempDir("opsx-bulk-proj")
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-bulk-archive", BulkArchiveTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val changes =
                     listOf(
@@ -97,7 +101,8 @@ class BulkArchiveTaskTest :
                 val projectDir = tempDir("opsx-bulk-proj")
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-bulk-archive", BulkArchiveTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val changes =
                     listOf(

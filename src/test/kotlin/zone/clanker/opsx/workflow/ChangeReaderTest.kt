@@ -17,7 +17,7 @@ class ChangeReaderTest :
                         it.mkdirs()
                     }
                 tempDir.deleteOnExit()
-                val reader = ChangeReader(tempDir, Opsx.SettingsExtension())
+                val reader = ChangeReader(tempDir, Opsx.SettingsExtension().toOpsxConfig())
 
                 then("returns empty list") {
                     reader.readAll() shouldHaveSize 0
@@ -55,7 +55,7 @@ class ChangeReaderTest :
                     """.trimIndent(),
                 )
 
-                val reader = ChangeReader(tempDir, Opsx.SettingsExtension())
+                val reader = ChangeReader(tempDir, Opsx.SettingsExtension().toOpsxConfig())
 
                 then("reads all changes sorted by name") {
                     val changes = reader.readAll()
@@ -82,7 +82,7 @@ class ChangeReaderTest :
                 val changeDir = File(changesDir, "no-config")
                 changeDir.mkdirs()
 
-                val reader = ChangeReader(tempDir, Opsx.SettingsExtension())
+                val reader = ChangeReader(tempDir, Opsx.SettingsExtension().toOpsxConfig())
 
                 then("uses directory name as change name") {
                     val changes = reader.readAll()
@@ -109,7 +109,7 @@ class ChangeReaderTest :
                     """.trimIndent(),
                 )
 
-                val reader = ChangeReader(File("/tmp"), Opsx.SettingsExtension())
+                val reader = ChangeReader(File("/tmp"), Opsx.SettingsExtension().toOpsxConfig())
 
                 then("reads change from directory") {
                     val change = reader.readChange(tempDir)
@@ -127,7 +127,7 @@ class ChangeReaderTest :
                     }
                 tempDir.deleteOnExit()
 
-                val reader = ChangeReader(File("/tmp"), Opsx.SettingsExtension())
+                val reader = ChangeReader(File("/tmp"), Opsx.SettingsExtension().toOpsxConfig())
 
                 then("uses directory name") {
                     val change = reader.readChange(tempDir)
@@ -159,9 +159,12 @@ class ChangeReaderTest :
                     """.trimIndent(),
                 )
 
-                val ext = Opsx.SettingsExtension()
-                ext.outputDir = "custom"
-                ext.changesDir = "proposals"
+                val customExt =
+                    Opsx.SettingsExtension().apply {
+                        outputDir = "custom"
+                        this.changesDir = "proposals"
+                    }
+                val ext = customExt.toOpsxConfig()
                 val reader = ChangeReader(tempDir, ext)
 
                 then("reads from custom path") {

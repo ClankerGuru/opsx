@@ -15,7 +15,7 @@ import zone.clanker.opsx.model.ChangeConfig
 import zone.clanker.opsx.workflow.ChangeReader
 import java.io.File
 
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
+private fun createConfig() = Opsx.SettingsExtension().toOpsxConfig()
 
 class ApplyTaskTest :
     BehaviorSpec({
@@ -43,7 +43,8 @@ class ApplyTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-apply", ApplyTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("returns empty list") {
                     task.validateForApply(change).shouldBeEmpty()
@@ -70,7 +71,8 @@ class ApplyTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-apply", ApplyTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("returns list with proposal.md") {
                     val missing = task.validateForApply(change)
@@ -99,7 +101,8 @@ class ApplyTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-apply", ApplyTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("returns list with design.md") {
                     val missing = task.validateForApply(change)
@@ -126,7 +129,8 @@ class ApplyTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-apply", ApplyTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("returns all three missing files") {
                     val missing = task.validateForApply(change)
@@ -155,8 +159,9 @@ class ApplyTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-apply", ApplyTask::class.java)
-                task.extension = createExtension()
-                val reader = ChangeReader(projectDir, createExtension())
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
+                val reader = ChangeReader(projectDir, createConfig())
 
                 val (change, taskId) = task.resolveTarget(reader, "my-change")
 
@@ -190,8 +195,9 @@ class ApplyTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-apply", ApplyTask::class.java)
-                task.extension = createExtension()
-                val reader = ChangeReader(projectDir, createExtension())
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
+                val reader = ChangeReader(projectDir, createConfig())
 
                 val (change, taskId) = task.resolveTarget(reader, "a1b2c3d4e5")
 
@@ -211,8 +217,9 @@ class ApplyTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-apply", ApplyTask::class.java)
-                task.extension = createExtension()
-                val reader = ChangeReader(projectDir, createExtension())
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
+                val reader = ChangeReader(projectDir, createConfig())
 
                 then("throws error") {
                     val ex = shouldThrow<IllegalStateException> { task.resolveTarget(reader, "nonexistent") }

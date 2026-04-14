@@ -11,7 +11,7 @@ import zone.clanker.opsx.model.ChangeConfig
 import zone.clanker.opsx.model.ChangeStatus
 import java.io.File
 
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
+private fun createConfig() = Opsx.SettingsExtension().toOpsxConfig()
 
 class ArchiveTaskTest :
     BehaviorSpec({
@@ -83,9 +83,10 @@ class ArchiveTaskTest :
                 )
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                project.extensions.extraProperties.set(Opsx.PROP_CHANGE, "gate-test")
                 val task = project.tasks.create("test-archive", ArchiveTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
+                task.changeName.set("gate-test")
 
                 then("archives successfully") {
                     shouldNotThrow<IllegalArgumentException> { task.run() }
@@ -108,9 +109,10 @@ class ArchiveTaskTest :
                 )
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                project.extensions.extraProperties.set(Opsx.PROP_CHANGE, "gate-fail")
                 val task = project.tasks.create("test-archive-fail", ArchiveTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
+                task.changeName.set("gate-fail")
 
                 then("rejects with error about verify") {
                     val ex = shouldThrow<IllegalArgumentException> { task.run() }
@@ -133,9 +135,10 @@ class ArchiveTaskTest :
                 )
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                project.extensions.extraProperties.set(Opsx.PROP_CHANGE, "no-verify")
                 val task = project.tasks.create("test-archive-no-verify", ArchiveTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
+                task.changeName.set("no-verify")
 
                 then("archives via normal transition") {
                     shouldNotThrow<IllegalArgumentException> { task.run() }

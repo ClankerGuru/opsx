@@ -8,7 +8,7 @@ import zone.clanker.opsx.Opsx
 import zone.clanker.opsx.model.Change
 import java.io.File
 
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
+private fun createConfig() = Opsx.SettingsExtension().toOpsxConfig()
 
 class PromptBuilderTest :
     BehaviorSpec({
@@ -82,7 +82,7 @@ class PromptBuilderTest :
                 val builder = PromptBuilder(tempDir)
 
                 then("returns file content") {
-                    builder.projectDescription(createExtension()) shouldBe "project description"
+                    builder.projectDescription(createConfig()) shouldBe "project description"
                 }
             }
 
@@ -97,7 +97,7 @@ class PromptBuilderTest :
                 val builder = PromptBuilder(tempDir)
 
                 then("returns empty string") {
-                    builder.projectDescription(createExtension()) shouldBe ""
+                    builder.projectDescription(createConfig()) shouldBe ""
                 }
             }
         }
@@ -117,7 +117,7 @@ class PromptBuilderTest :
                 val builder = PromptBuilder(tempDir)
 
                 then("returns spec content") {
-                    builder.specContent(createExtension(), "my-spec") shouldBe "spec content here"
+                    builder.specContent(createConfig(), "my-spec") shouldBe "spec content here"
                 }
             }
 
@@ -132,7 +132,7 @@ class PromptBuilderTest :
                 val builder = PromptBuilder(tempDir)
 
                 then("returns empty string") {
-                    builder.specContent(createExtension(), "missing-spec") shouldBe ""
+                    builder.specContent(createConfig(), "missing-spec") shouldBe ""
                 }
             }
         }

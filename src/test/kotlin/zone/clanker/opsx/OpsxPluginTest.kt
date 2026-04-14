@@ -5,6 +5,11 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.gradle.testfixtures.ProjectBuilder
+import zone.clanker.opsx.skill.TaskInfo
+import zone.clanker.opsx.task.CleanTask
+import zone.clanker.opsx.task.ListTask
+import zone.clanker.opsx.task.StatusTask
+import zone.clanker.opsx.task.SyncTask
 import java.io.File
 
 class OpsxPluginTest :
@@ -212,7 +217,9 @@ class OpsxPluginTest :
                         .withProjectDir(tempDir)
                         .build()
 
-                val task = project.tasks.create("clean-test", Opsx.CleanTask::class.java)
+                val task = project.tasks.create("clean-test", CleanTask::class.java)
+                task.rootDir.set(tempDir)
+                task.includedBuildDirs.set(emptyList())
                 task.run()
 
                 then("removes OPSX marker section") {
@@ -258,7 +265,9 @@ class OpsxPluginTest :
                         .withProjectDir(tempDir)
                         .build()
 
-                val task = project.tasks.create("clean-test-empty", Opsx.CleanTask::class.java)
+                val task = project.tasks.create("clean-test-empty", CleanTask::class.java)
+                task.rootDir.set(tempDir)
+                task.includedBuildDirs.set(emptyList())
                 task.run()
 
                 then("deletes the file when empty after removal") {
@@ -283,7 +292,9 @@ class OpsxPluginTest :
                         .withProjectDir(tempDir)
                         .build()
 
-                val task = project.tasks.create("clean-test-nomarkers", Opsx.CleanTask::class.java)
+                val task = project.tasks.create("clean-test-nomarkers", CleanTask::class.java)
+                task.rootDir.set(tempDir)
+                task.includedBuildDirs.set(emptyList())
                 task.run()
 
                 then("leaves file unchanged") {
@@ -323,7 +334,9 @@ class OpsxPluginTest :
                         .withProjectDir(tempDir)
                         .build()
 
-                val task = project.tasks.create("clean-test-dirs", Opsx.CleanTask::class.java)
+                val task = project.tasks.create("clean-test-dirs", CleanTask::class.java)
+                task.rootDir.set(tempDir)
+                task.includedBuildDirs.set(emptyList())
                 task.run()
 
                 System.setProperty("user.home", origHome)
@@ -356,7 +369,9 @@ class OpsxPluginTest :
                         .build()
 
                 then("does not throw") {
-                    val task = project.tasks.create("clean-test-noop", Opsx.CleanTask::class.java)
+                    val task = project.tasks.create("clean-test-noop", CleanTask::class.java)
+                    task.rootDir.set(tempDir)
+                    task.includedBuildDirs.set(emptyList())
                     task.run()
                     // no exception = pass
                 }
@@ -386,7 +401,9 @@ class OpsxPluginTest :
                         .withProjectDir(tempDir)
                         .build()
 
-                val task = project.tasks.create("clean-test-both", Opsx.CleanTask::class.java)
+                val task = project.tasks.create("clean-test-both", CleanTask::class.java)
+                task.rootDir.set(tempDir)
+                task.includedBuildDirs.set(emptyList())
                 task.run()
 
                 then("removes markers from CLAUDE.md") {
@@ -409,7 +426,7 @@ class OpsxPluginTest :
             }
         }
 
-        given("Opsx.ListTask @TaskAction") {
+        given("ListTask @TaskAction") {
             `when`("no changes exist") {
                 val projectDir =
                     File.createTempFile("opsx-inner-list", "").apply {
@@ -418,8 +435,9 @@ class OpsxPluginTest :
                         deleteOnExit()
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                val task = project.tasks.create("test-inner-list", Opsx.ListTask::class.java)
-                task.extension = Opsx.SettingsExtension()
+                val task = project.tasks.create("test-inner-list", ListTask::class.java)
+                task.rootDir.set(projectDir)
+                task.config.set(Opsx.SettingsExtension().toOpsxConfig())
 
                 then("runs without error reporting no changes") {
                     task.run()
@@ -442,8 +460,9 @@ class OpsxPluginTest :
                 )
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                val task = project.tasks.create("test-inner-list2", Opsx.ListTask::class.java)
-                task.extension = Opsx.SettingsExtension()
+                val task = project.tasks.create("test-inner-list2", ListTask::class.java)
+                task.rootDir.set(projectDir)
+                task.config.set(Opsx.SettingsExtension().toOpsxConfig())
 
                 then("lists the changes") {
                     task.run()
@@ -451,7 +470,7 @@ class OpsxPluginTest :
             }
         }
 
-        given("Opsx.StatusTask @TaskAction") {
+        given("StatusTask @TaskAction") {
             `when`("no changes exist") {
                 val projectDir =
                     File.createTempFile("opsx-inner-status", "").apply {
@@ -460,8 +479,9 @@ class OpsxPluginTest :
                         deleteOnExit()
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                val task = project.tasks.create("test-inner-status", Opsx.StatusTask::class.java)
-                task.extension = Opsx.SettingsExtension()
+                val task = project.tasks.create("test-inner-status", StatusTask::class.java)
+                task.rootDir.set(projectDir)
+                task.config.set(Opsx.SettingsExtension().toOpsxConfig())
 
                 then("runs without error") {
                     task.run()
@@ -490,8 +510,9 @@ class OpsxPluginTest :
                 File(changeDir, "tasks.md").writeText("# Tasks\n- [x] done\n")
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                val task = project.tasks.create("test-inner-status2", Opsx.StatusTask::class.java)
-                task.extension = Opsx.SettingsExtension()
+                val task = project.tasks.create("test-inner-status2", StatusTask::class.java)
+                task.rootDir.set(projectDir)
+                task.config.set(Opsx.SettingsExtension().toOpsxConfig())
 
                 then("shows status with artifacts and deps") {
                     task.run()
@@ -533,7 +554,7 @@ class OpsxPluginTest :
             }
         }
 
-        given("Opsx.SyncTask @TaskAction") {
+        given("SyncTask @TaskAction") {
             `when`("run is called") {
                 val tempDir =
                     File.createTempFile("opsx-inner-sync", "").apply {
@@ -545,13 +566,12 @@ class OpsxPluginTest :
                 System.setProperty("user.home", tempDir.absolutePath)
 
                 val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
-                project.tasks.register("opsx-test-sync-skill") {
-                    it.group = "opsx"
-                    it.description = "Test sync skill"
-                }
 
-                val task = project.tasks.create("test-inner-sync", Opsx.SyncTask::class.java)
-                task.extension = Opsx.SettingsExtension()
+                val task = project.tasks.create("test-inner-sync", SyncTask::class.java)
+                task.rootDir.set(tempDir)
+                task.taskInfos.set(listOf(TaskInfo("opsx-test-sync-skill", "opsx", "Test sync skill")))
+                task.includedBuildNames.set(emptyList())
+                task.includedBuildDirs.set(emptyList())
                 task.run()
 
                 System.setProperty("user.home", origHome)
@@ -566,7 +586,7 @@ class OpsxPluginTest :
             }
         }
 
-        given("Opsx.CleanTask @TaskAction") {
+        given("CleanTask @TaskAction") {
             `when`("nothing to clean") {
                 val projectDir =
                     File.createTempFile("opsx-inner-clean", "").apply {
@@ -575,7 +595,9 @@ class OpsxPluginTest :
                         deleteOnExit()
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                val task = project.tasks.create("test-inner-clean", Opsx.CleanTask::class.java)
+                val task = project.tasks.create("test-inner-clean", CleanTask::class.java)
+                task.rootDir.set(projectDir)
+                task.includedBuildDirs.set(emptyList())
 
                 then("completes without error") {
                     task.run()
@@ -601,7 +623,9 @@ class OpsxPluginTest :
                 File(srcxDir, "context.md").writeText("context")
 
                 val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
-                val task = project.tasks.create("test-inner-clean2", Opsx.CleanTask::class.java)
+                val task = project.tasks.create("test-inner-clean2", CleanTask::class.java)
+                task.rootDir.set(tempDir)
+                task.includedBuildDirs.set(emptyList())
                 task.run()
 
                 System.setProperty("user.home", origHome)
@@ -627,7 +651,9 @@ class OpsxPluginTest :
                 claudeMd.writeText("# Proj\n<!-- OPSX:AUTO -->\ngen\n<!-- /OPSX:AUTO -->\n")
 
                 val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
-                val task = project.tasks.create("test-inner-clean3", Opsx.CleanTask::class.java)
+                val task = project.tasks.create("test-inner-clean3", CleanTask::class.java)
+                task.rootDir.set(tempDir)
+                task.includedBuildDirs.set(emptyList())
                 task.run()
 
                 then("removes markers from instruction files") {

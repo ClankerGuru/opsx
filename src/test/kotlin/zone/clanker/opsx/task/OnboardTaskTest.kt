@@ -7,7 +7,7 @@ import org.gradle.testfixtures.ProjectBuilder
 import zone.clanker.opsx.Opsx
 import java.io.File
 
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
+private fun createConfig() = Opsx.SettingsExtension().toOpsxConfig()
 
 class OnboardTaskTest :
     BehaviorSpec({
@@ -23,10 +23,12 @@ class OnboardTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-onboard", OnboardTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val prompt =
                     task.buildOnboardPrompt(
+                        projectDir,
                         "srcx codebase context here",
                         "project description here",
                         "I am a backend developer",
@@ -63,10 +65,12 @@ class OnboardTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-onboard", OnboardTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val prompt =
                     task.buildOnboardPrompt(
+                        projectDir,
                         "context",
                         "project desc",
                         "",
@@ -91,10 +95,12 @@ class OnboardTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-onboard", OnboardTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val prompt =
                     task.buildOnboardPrompt(
+                        projectDir,
                         "context",
                         "project desc",
                         "   ",
@@ -114,10 +120,12 @@ class OnboardTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-onboard", OnboardTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val prompt =
                     task.buildOnboardPrompt(
+                        projectDir,
                         "",
                         "",
                         "user question",
@@ -140,9 +148,10 @@ class OnboardTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-onboard", OnboardTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
-                val prompt = task.buildOnboardPrompt("", "", "")
+                val prompt = task.buildOnboardPrompt(projectDir, "", "", "")
 
                 then("still includes instructions section") {
                     prompt shouldContain "guided tour"

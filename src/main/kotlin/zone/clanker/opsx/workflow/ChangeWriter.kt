@@ -1,17 +1,17 @@
 package zone.clanker.opsx.workflow
 
-import zone.clanker.opsx.Opsx
 import zone.clanker.opsx.model.ChangeConfig
 import zone.clanker.opsx.model.ChangeStatus
+import zone.clanker.opsx.model.OpsxConfig
 import java.io.File
 
 class ChangeWriter(
     private val rootDir: File,
-    private val extension: Opsx.SettingsExtension,
+    private val config: OpsxConfig,
 ) {
     fun createChangeDir(changeName: String): File {
         requireSafeName(changeName)
-        val changesDir = File(rootDir, "${extension.outputDir}/${extension.changesDir}")
+        val changesDir = File(rootDir, "${config.outputDir}/${config.changesDir}")
         val changeDir = File(changesDir, changeName)
         changeDir.mkdirs()
         return changeDir
@@ -31,8 +31,8 @@ class ChangeWriter(
         changeName: String,
         status: ChangeStatus,
     ) {
-        val config = ChangeConfig(name = changeName, status = status.value)
-        ChangeConfig.write(File(changeDir, ".opsx.yaml"), config)
+        val changeConfig = ChangeConfig(name = changeName, status = status.value)
+        ChangeConfig.write(File(changeDir, ".opsx.yaml"), changeConfig)
     }
 
     fun writeProposal(

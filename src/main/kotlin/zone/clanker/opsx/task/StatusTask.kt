@@ -1,24 +1,29 @@
 package zone.clanker.opsx.task
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
-import zone.clanker.opsx.Opsx
 import zone.clanker.opsx.model.ChangeStatus
+import zone.clanker.opsx.model.OpsxConfig
 import zone.clanker.opsx.model.TaskStatus
 import zone.clanker.opsx.workflow.ChangeReader
 import zone.clanker.opsx.workflow.TaskParser
+import java.io.File
 
 /** Shows status of all changes with per-task details. */
 @DisableCachingByDefault(because = "Displays change status to console")
 abstract class StatusTask : DefaultTask() {
     @get:Internal
-    lateinit var extension: Opsx.SettingsExtension
+    abstract val rootDir: Property<File>
+
+    @get:Internal
+    abstract val config: Property<OpsxConfig>
 
     @TaskAction
     fun run() {
-        val reader = ChangeReader(project.rootDir, extension)
+        val reader = ChangeReader(rootDir.get(), config.get())
         val changes = reader.readAll()
         if (changes.isEmpty()) {
             logger.quiet("opsx: no changes")
