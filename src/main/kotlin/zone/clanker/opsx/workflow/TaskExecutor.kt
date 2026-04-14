@@ -32,7 +32,8 @@ class TaskExecutor(
     fun execute(targetTaskId: String?) {
         val allTasks = TaskParser.parse(tasksFile)
         if (allTasks.isEmpty()) {
-            logger.quiet("opsx: no tasks found in ${tasksFile.path}")
+            logger.quiet("opsx: no structured tasks found — dispatching full change to agent")
+            executeFallback()
             return
         }
 
@@ -96,6 +97,54 @@ class TaskExecutor(
             failed.add(task.id)
             logger.warn("opsx: ${task.id} | ${task.name} — failed with exit code ${result.exitCode}")
         }
+    }
+
+    private fun executeFallback() {
+        val prompt = buildFallbackPrompt()
+        val startTime = System.currentTimeMillis()
+        val result = dispatcher(agent, prompt, workDir, model, AgentDispatcher.DEFAULT_TIMEOUT_SECONDS)
+        val elapsed = (System.currentTimeMillis() - startTime) / MILLIS_PER_SECOND
+
+        if (result.exitCode == 0) {
+            logger.quiet("opsx: agent completed in ${elapsed}s")
+        } else {
+            logger.warn("opsx: agent failed with exit code ${result.exitCode}")
+        }
+    }
+
+    private fun buildFallbackPrompt(): String {
+        val designFile = File(changeDir, "design.md")
+        val proposalFile = File(changeDir, "proposal.md")
+
+        return buildString {
+            appendLine("# Change")
+            appendLine()
+            if (proposalFile.exists()) {
+                appendLine(proposalFile.readText().trim())
+                appendLine()
+                appendLine("---")
+                appendLine()
+            }
+            if (designFile.exists()) {
+                appendLine(designFile.readText().trim())
+                appendLine()
+                appendLine("---")
+                appendLine()
+            }
+            if (tasksFile.exists()) {
+                appendLine("# Tasks")
+                appendLine()
+                appendLine(tasksFile.readText().trim())
+                appendLine()
+                appendLine("---")
+                appendLine()
+            }
+            appendLine("# Instructions")
+            appendLine()
+            appendLine("Implement the change described above.")
+            appendLine("Follow the design document faithfully.")
+            appendLine("Write tests for all new functionality.")
+        }.trimEnd()
     }
 
     companion object {
