@@ -1,55 +1,69 @@
 package zone.clanker.opsx.task
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
-import zone.clanker.opsx.Opsx
+import zone.clanker.opsx.model.OpsxConfig
 import zone.clanker.opsx.workflow.AgentDispatcher
 import zone.clanker.opsx.workflow.ChangeReader
 import zone.clanker.opsx.workflow.PromptBuilder
+import java.io.File
 
 /** Fast-forwards a change to match the current codebase state. */
 @DisableCachingByDefault(because = "Runs an external agent process")
 abstract class FfTask : DefaultTask() {
     @get:Internal
-    lateinit var extension: Opsx.SettingsExtension
+    abstract val rootDir: Property<File>
+
+    @get:Internal
+    abstract val config: Property<OpsxConfig>
+
+    @get:Internal
+    abstract val changeName: Property<String>
+
+    @get:Internal
+    abstract val agent: Property<String>
+
+    @get:Internal
+    abstract val model: Property<String>
 
     @TaskAction
     fun run() {
-        val changeName =
-            project.findProperty(Opsx.PROP_CHANGE)?.toString()
-                ?: error("Required: -P${Opsx.PROP_CHANGE}=\"change-name\"")
-        val agent =
-            project.findProperty(Opsx.PROP_AGENT)?.toString()?.takeUnless { it.isBlank() }
-                ?: extension.defaultAgent
-        val model = project.findProperty(Opsx.PROP_MODEL)?.toString() ?: ""
+        val name =
+            changeName.orNull
+                ?: error("Required: -P${zone.clanker.opsx.Opsx.PROP_CHANGE}=\"change-name\"")
+        val agentVal = agent.get()
+        val modelVal = model.getOrElse("")
+        val root = rootDir.get()
 
-        val reader = ChangeReader(project.rootDir, extension)
-        val promptBuilder = PromptBuilder(project.rootDir)
+        val reader = ChangeReader(root, config.get())
+        val promptBuilder = PromptBuilder(root)
 
         val change =
-            reader.readAll().find { it.name == changeName }
-                ?: error("Change not found: $changeName")
+            reader.readAll().find { it.name == name }
+                ?: error("Change not found: $name")
 
         val context = promptBuilder.srcxContext()
         val changeCtx = promptBuilder.changeContext(change)
-        val relPath = change.dir.relativeTo(project.rootDir).path
-        val fullPrompt = buildFfPrompt(context, changeCtx, relPath)
+        val relPath = change.dir.relativeTo(root).path
+        val fullPrompt = buildFfPrompt(root, context, changeCtx, relPath)
 
-        logger.quiet("opsx-ff: asking $agent to fast-forward '$changeName'...")
-        val result = AgentDispatcher.dispatch(agent, fullPrompt, project.rootDir, model)
+        logger.quiet("opsx-ff: asking $agentVal to fast-forward '$name'...")
+        val result = AgentDispatcher.dispatch(agentVal, fullPrompt, root, modelVal)
         if (result.exitCode != 0) {
             logger.warn("opsx-ff: agent exited with code ${result.exitCode}")
         }
     }
 
     internal fun buildFfPrompt(
+        root: File,
         context: String,
         changeCtx: String,
         changePath: String,
     ): String {
-        val promptBuilder = PromptBuilder(project.rootDir)
+        val promptBuilder = PromptBuilder(root)
         return promptBuilder.build(
             "Codebase Context" to context,
             "Change" to changeCtx,

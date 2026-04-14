@@ -1,11 +1,13 @@
 package zone.clanker.opsx.task
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
-import zone.clanker.opsx.Opsx
 import zone.clanker.opsx.skill.SkillGenerator
+import zone.clanker.opsx.skill.TaskInfo
 import java.io.File
 import java.nio.file.Files
 
@@ -13,11 +15,26 @@ import java.nio.file.Files
 @DisableCachingByDefault(because = "Generates files in multiple agent-specific directories")
 abstract class SyncTask : DefaultTask() {
     @get:Internal
-    lateinit var extension: Opsx.SettingsExtension
+    abstract val rootDir: Property<File>
+
+    @get:Internal
+    abstract val taskInfos: ListProperty<TaskInfo>
+
+    @get:Internal
+    abstract val includedBuildNames: ListProperty<String>
+
+    @get:Internal
+    abstract val includedBuildDirs: ListProperty<File>
 
     @TaskAction
     fun run() {
-        val generator = SkillGenerator(project)
+        val root = rootDir.get()
+        val generator =
+            SkillGenerator(
+                rootDir = root,
+                tasks = taskInfos.get(),
+                buildNames = includedBuildNames.get(),
+            )
         val home = File(System.getProperty("user.home"))
         val sourceDir = File(home, SkillGenerator.SKILLS_DIR)
 

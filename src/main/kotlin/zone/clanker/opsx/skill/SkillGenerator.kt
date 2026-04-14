@@ -1,32 +1,24 @@
 package zone.clanker.opsx.skill
 
-import org.gradle.api.Project
-import org.gradle.api.initialization.IncludedBuild
 import zone.clanker.opsx.Opsx
 import java.io.File
 import java.nio.file.Files
 
 class SkillGenerator(
-    private val rootProject: Project,
+    private val rootDir: File,
+    private val tasks: List<TaskInfo>,
+    private val buildNames: List<String>,
 ) {
     fun generate(): List<File> {
-        val tasks = discoverTasks()
-        val includedBuilds = rootProject.gradle.includedBuilds
-
-        val sourceDir = generateSkillFiles(tasks, includedBuilds)
-        generateInstructionFiles(tasks, includedBuilds)
+        val sourceDir = generateSkillFiles(tasks, buildNames)
+        generateInstructionFiles(tasks, buildNames)
 
         return listOf(sourceDir)
     }
 
-    internal fun discoverTasks(): List<TaskInfo> =
-        rootProject.tasks
-            .filter { it.group in TRACKED_GROUPS }
-            .map { TaskInfo(it.name, it.group ?: "", it.description ?: "") }
-
     internal fun generateSkillFiles(
         tasks: List<TaskInfo>,
-        builds: Collection<IncludedBuild>,
+        builds: List<String>,
     ): File {
         val sourceDir = File(homeDir(), SKILLS_DIR)
         sourceDir.mkdirs()
@@ -41,7 +33,7 @@ class SkillGenerator(
             AGENT_TARGETS.flatMap { target ->
                 listOf(
                     File(homeDir(), target),
-                    File(rootProject.rootDir, target),
+                    File(rootDir, target),
                 )
             }
         allTargetDirs.forEach { targetDir ->
@@ -77,7 +69,7 @@ class SkillGenerator(
 
     internal fun buildCommandFile(
         task: TaskInfo,
-        builds: Collection<IncludedBuild>,
+        builds: List<String>,
     ): String =
         buildString {
             appendLine("# ${task.name}")
@@ -128,15 +120,14 @@ class SkillGenerator(
                 appendLine()
                 appendLine("## Included Builds")
                 appendLine()
-                builds.forEach { build -> appendLine("- ${build.name}") }
+                builds.forEach { name -> appendLine("- $name") }
             }
         }
 
     internal fun generateInstructionFiles(
         tasks: List<TaskInfo>,
-        builds: Collection<IncludedBuild>,
+        builds: List<String>,
     ) {
-        val rootDir = rootProject.rootDir
         val instructions = buildInstructions(tasks, builds)
 
         val claudeMd = File(rootDir, "CLAUDE.md")
@@ -174,7 +165,7 @@ class SkillGenerator(
     @Suppress("LongMethod")
     private fun buildInstructions(
         tasks: List<TaskInfo>,
-        builds: Collection<IncludedBuild>,
+        builds: List<String>,
     ): String =
         buildString {
             appendLine("# OPSX Workspace")
@@ -197,7 +188,7 @@ class SkillGenerator(
             if (builds.isNotEmpty()) {
                 appendLine("## Included Builds")
                 appendLine()
-                builds.forEach { appendLine("- ${it.name}") }
+                builds.forEach { appendLine("- $it") }
                 appendLine()
             }
             appendLine("## Rules")

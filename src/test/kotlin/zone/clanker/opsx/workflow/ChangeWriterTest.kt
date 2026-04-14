@@ -9,7 +9,7 @@ import zone.clanker.opsx.model.ChangeConfig
 import zone.clanker.opsx.model.ChangeStatus
 import java.io.File
 
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
+private fun createConfig() = Opsx.SettingsExtension().toOpsxConfig()
 
 class ChangeWriterTest :
     BehaviorSpec({
@@ -23,7 +23,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
 
                 val changeDir = writer.createChangeDir("new-feature")
 
@@ -44,7 +44,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val existing = File(rootDir, "opsx/changes/existing")
                 existing.mkdirs()
                 File(existing, "proposal.md").writeText("existing proposal")
@@ -64,12 +64,13 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val ext =
+                val customExt =
                     Opsx.SettingsExtension().apply {
                         outputDir = "custom-out"
                         changesDir = "my-changes"
                     }
-                val writer = ChangeWriter(rootDir, ext)
+                val customCfg = customExt.toOpsxConfig()
+                val writer = ChangeWriter(rootDir, customCfg)
 
                 val changeDir = writer.createChangeDir("test-change")
 
@@ -89,7 +90,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
 
                 writer.writeConfig(changeDir, "test", ChangeStatus.ACTIVE)
@@ -110,7 +111,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/draft-test").apply { mkdirs() }
 
                 writer.writeConfig(changeDir, "draft-test", ChangeStatus.DRAFT)
@@ -131,7 +132,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
 
                 writer.writeProposal(changeDir, "This is a proposal.")
@@ -150,7 +151,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
                 File(changeDir, "proposal.md").writeText("old proposal")
 
@@ -171,7 +172,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
 
                 writer.writeDesignSkeleton(changeDir, "test-change")
@@ -191,7 +192,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
                 File(changeDir, "design.md").writeText("existing design content")
 
@@ -212,7 +213,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
 
                 writer.writeTasksSkeleton(changeDir, "test-change")
@@ -232,7 +233,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
                 File(changeDir, "tasks.md").writeText("existing tasks content")
 
@@ -253,7 +254,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
                 ChangeConfig.write(
                     File(changeDir, ".opsx.yaml"),
@@ -275,7 +276,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
 
                 then("throws IllegalArgumentException") {
@@ -292,7 +293,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
                 ChangeConfig.write(
                     File(changeDir, ".opsx.yaml"),
@@ -317,7 +318,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
 
                 writer.appendFeedback(changeDir, "First feedback.")
@@ -336,7 +337,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
                 File(changeDir, "feedback.md").writeText("Existing feedback.")
 
@@ -356,7 +357,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
 
                 writer.appendFeedback(changeDir, "First.")
@@ -378,7 +379,7 @@ class ChangeWriterTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val writer = ChangeWriter(rootDir, createExtension())
+                val writer = ChangeWriter(rootDir, createConfig())
                 val changeDir = File(rootDir, "opsx/changes/test").apply { mkdirs() }
 
                 writer.appendFeedback(changeDir, "")

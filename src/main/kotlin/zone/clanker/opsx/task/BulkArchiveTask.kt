@@ -1,25 +1,31 @@
 package zone.clanker.opsx.task
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
-import zone.clanker.opsx.Opsx
 import zone.clanker.opsx.model.Change
 import zone.clanker.opsx.model.ChangeStatus
+import zone.clanker.opsx.model.OpsxConfig
 import zone.clanker.opsx.workflow.ChangeReader
 import zone.clanker.opsx.workflow.ChangeWriter
+import java.io.File
 
 /** Archives all completed or verified changes in bulk. */
 @DisableCachingByDefault(because = "Updates change status on disk")
 abstract class BulkArchiveTask : DefaultTask() {
     @get:Internal
-    lateinit var extension: Opsx.SettingsExtension
+    abstract val rootDir: Property<File>
+
+    @get:Internal
+    abstract val config: Property<OpsxConfig>
 
     @TaskAction
     fun run() {
-        val reader = ChangeReader(project.rootDir, extension)
-        val writer = ChangeWriter(project.rootDir, extension)
+        val cfg = config.get()
+        val reader = ChangeReader(rootDir.get(), cfg)
+        val writer = ChangeWriter(rootDir.get(), cfg)
 
         val allChanges = reader.readAll()
         val archivable = findArchivable(allChanges)

@@ -22,6 +22,8 @@ class CleanTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-clean", CleanTask::class.java)
+                task.rootDir.set(projectDir)
+                task.includedBuildDirs.set(emptyList())
 
                 then("completes without error") {
                     task.run()
@@ -45,6 +47,8 @@ class CleanTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
                 val task = project.tasks.create("test-clean-skills", CleanTask::class.java)
+                task.rootDir.set(tempDir)
+                task.includedBuildDirs.set(emptyList())
                 task.run()
 
                 System.setProperty("user.home", origHome)
@@ -80,6 +84,8 @@ class CleanTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
                 val task = project.tasks.create("test-clean-links", CleanTask::class.java)
+                task.rootDir.set(tempDir)
+                task.includedBuildDirs.set(emptyList())
                 task.run()
 
                 System.setProperty("user.home", origHome)
@@ -113,6 +119,8 @@ class CleanTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
                 val task = project.tasks.create("test-clean-broken", CleanTask::class.java)
+                task.rootDir.set(tempDir)
+                task.includedBuildDirs.set(emptyList())
                 task.run()
 
                 System.setProperty("user.home", origHome)
@@ -142,6 +150,8 @@ class CleanTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
                 val task = project.tasks.create("test-clean-markers", CleanTask::class.java)
+                task.rootDir.set(tempDir)
+                task.includedBuildDirs.set(emptyList())
                 task.run()
 
                 then("removes OPSX sections from files preserving other content") {
@@ -170,6 +180,8 @@ class CleanTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
                 val task = project.tasks.create("test-clean-srcx", CleanTask::class.java)
+                task.rootDir.set(tempDir)
+                task.includedBuildDirs.set(emptyList())
                 task.run()
 
                 then("deletes .srcx directory") {
@@ -189,6 +201,8 @@ class CleanTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
                 val task = project.tasks.create("test-clean-nomark", CleanTask::class.java)
+                task.rootDir.set(tempDir)
+                task.includedBuildDirs.set(emptyList())
                 task.run()
 
                 then("leaves file unchanged") {

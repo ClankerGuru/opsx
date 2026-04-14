@@ -6,7 +6,7 @@ import org.gradle.testfixtures.ProjectBuilder
 import zone.clanker.opsx.Opsx
 import java.io.File
 
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
+private fun createConfig() = Opsx.SettingsExtension().toOpsxConfig()
 
 class FfTaskTest :
     BehaviorSpec({
@@ -22,9 +22,10 @@ class FfTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-ff", FfTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
-                val prompt = task.buildFfPrompt("codebase context", "change context", "opsx/changes/test")
+                val prompt = task.buildFfPrompt(projectDir, "codebase context", "change context", "opsx/changes/test")
 
                 then("includes codebase context") {
                     prompt shouldContain "codebase context"
@@ -64,9 +65,10 @@ class FfTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-ff", FfTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
-                val prompt = task.buildFfPrompt("", "change context only", "opsx/changes/test")
+                val prompt = task.buildFfPrompt(projectDir, "", "change context only", "opsx/changes/test")
 
                 then("still includes change context") {
                     prompt shouldContain "change context only"
@@ -86,10 +88,16 @@ class FfTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-ff", FfTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val prompt =
-                    task.buildFfPrompt("large context blob", "change with proposal and design", "opsx/changes/test")
+                    task.buildFfPrompt(
+                        projectDir,
+                        "large context blob",
+                        "change with proposal and design",
+                        "opsx/changes/test",
+                    )
 
                 then("includes all sections via PromptBuilder.build") {
                     prompt shouldContain "# Codebase Context"

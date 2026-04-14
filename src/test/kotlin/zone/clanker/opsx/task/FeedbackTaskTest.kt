@@ -7,7 +7,7 @@ import zone.clanker.opsx.Opsx
 import java.io.File
 import java.time.LocalDate
 
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
+private fun createConfig() = Opsx.SettingsExtension().toOpsxConfig()
 
 class FeedbackTaskTest :
     BehaviorSpec({
@@ -23,7 +23,8 @@ class FeedbackTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-feedback", FeedbackTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val feedback = "The auth module needs better error handling"
                 val entry = task.formatFeedbackEntry(feedback)
@@ -46,7 +47,8 @@ class FeedbackTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-feedback", FeedbackTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val feedback = "Line one\nLine two\nLine three"
                 val entry = task.formatFeedbackEntry(feedback)
@@ -69,7 +71,8 @@ class FeedbackTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-feedback", FeedbackTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val entry = task.formatFeedbackEntry("")
 
@@ -90,10 +93,12 @@ class FeedbackTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-feedback", FeedbackTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val prompt =
                     task.buildFeedbackPrompt(
+                        projectDir,
                         "codebase context",
                         "change context",
                         "Please add error handling to the API layer",
@@ -128,9 +133,10 @@ class FeedbackTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-feedback", FeedbackTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
-                val prompt = task.buildFeedbackPrompt("", "change ctx", "some feedback")
+                val prompt = task.buildFeedbackPrompt(projectDir, "", "change ctx", "some feedback")
 
                 then("still includes change context") {
                     prompt shouldContain "change ctx"

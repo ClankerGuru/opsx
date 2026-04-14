@@ -6,7 +6,7 @@ import zone.clanker.opsx.Opsx
 import zone.clanker.opsx.model.ChangeConfig
 import java.io.File
 
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
+private fun createConfig() = Opsx.SettingsExtension().toOpsxConfig()
 
 class ListTaskTest :
     BehaviorSpec({
@@ -22,7 +22,8 @@ class ListTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-list", ListTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("completes without error") {
                     task.run()
@@ -42,7 +43,8 @@ class ListTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-list", ListTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("completes without error") {
                     task.run()
@@ -66,7 +68,8 @@ class ListTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-list", ListTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("completes without error") {
                     task.run()
@@ -105,7 +108,8 @@ class ListTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-list", ListTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("completes without error listing all changes") {
                     task.run()
@@ -119,11 +123,12 @@ class ListTaskTest :
                         mkdirs()
                         deleteOnExit()
                     }
-                val ext =
+                val customExt =
                     Opsx.SettingsExtension().apply {
                         outputDir = "custom-output"
                         changesDir = "custom-changes"
                     }
+                val customConfig = customExt.toOpsxConfig()
 
                 val changesDir = File(projectDir, "custom-output/custom-changes")
                 val changeDir = File(changesDir, "test-change")
@@ -135,7 +140,8 @@ class ListTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-list", ListTask::class.java)
-                task.extension = ext
+                task.rootDir.set(projectDir)
+                task.config.set(customConfig)
 
                 then("reads from custom directories") {
                     task.run()
@@ -155,7 +161,8 @@ class ListTaskTest :
 
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-list", ListTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("falls back to directory name and default status") {
                     task.run()

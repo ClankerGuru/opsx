@@ -4,10 +4,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import org.gradle.testfixtures.ProjectBuilder
-import zone.clanker.opsx.Opsx
 import java.io.File
-
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
 
 class ExploreTaskTest :
     BehaviorSpec({
@@ -23,7 +20,7 @@ class ExploreTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-explore", ExploreTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
 
                 val prompt = task.buildPrompt("full codebase context here", "How does auth work?")
 
@@ -62,7 +59,7 @@ class ExploreTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-explore", ExploreTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
 
                 val prompt = task.buildPrompt("", "What is the project structure?")
 
@@ -93,7 +90,7 @@ class ExploreTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-explore", ExploreTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
 
                 val question = "Where is `UserService.kt` and what does the @Transactional annotation do?"
                 val prompt = task.buildPrompt("some context", question)

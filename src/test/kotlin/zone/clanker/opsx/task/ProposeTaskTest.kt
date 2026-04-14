@@ -7,7 +7,7 @@ import org.gradle.testfixtures.ProjectBuilder
 import zone.clanker.opsx.Opsx
 import java.io.File
 
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
+private fun createConfig() = Opsx.SettingsExtension().toOpsxConfig()
 
 class ProposeTaskTest :
     BehaviorSpec({
@@ -23,7 +23,8 @@ class ProposeTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-propose", ProposeTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("returns spec name") {
                     task.resolveChangeName("my-spec", null) shouldBe "my-spec"
@@ -39,7 +40,8 @@ class ProposeTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-propose", ProposeTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("slugifies first 4 words") {
                     task.resolveChangeName(null, "Add user authentication flow") shouldBe
@@ -56,7 +58,8 @@ class ProposeTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-propose", ProposeTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("removes special chars and limits to 4 words") {
                     task.resolveChangeName(null, "Fix the bug! In the auth module quickly") shouldBe
@@ -73,7 +76,8 @@ class ProposeTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-propose", ProposeTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("returns untitled-change") {
                     task.resolveChangeName(null, "") shouldBe "untitled-change"
@@ -89,7 +93,8 @@ class ProposeTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-propose", ProposeTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 then("spec is used when no name override") {
                     task.resolveChangeName("my-spec", "some prompt") shouldBe "my-spec"
@@ -108,11 +113,13 @@ class ProposeTaskTest :
                     }
                 val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
                 val task = project.tasks.create("test-propose", ProposeTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(projectDir)
+                task.config.set(createConfig())
 
                 val changeDir = File(projectDir, "opsx/changes/test-change").apply { mkdirs() }
                 val prompt =
                     task.buildProposalPrompt(
+                        projectDir,
                         "context here",
                         "project desc",
                         "user request",

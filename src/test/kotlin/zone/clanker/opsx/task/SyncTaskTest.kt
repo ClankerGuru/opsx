@@ -3,11 +3,8 @@ package zone.clanker.opsx.task
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import zone.clanker.opsx.Opsx
 import java.io.File
 import java.nio.file.Files
-
-private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
 
 class SyncTaskTest :
     BehaviorSpec({
@@ -119,7 +116,10 @@ class SyncTaskTest :
                         .withProjectDir(tempDir)
                         .build()
                 val task = project.tasks.create("gitignore-sync", SyncTask::class.java)
-                task.extension = createExtension()
+                task.rootDir.set(tempDir)
+                task.taskInfos.set(emptyList())
+                task.includedBuildNames.set(emptyList())
+                task.includedBuildDirs.set(emptyList())
 
                 val writeMethod =
                     SyncTask::class.java.getDeclaredMethod(
@@ -202,10 +202,11 @@ class SyncTaskTest :
                     .withProjectDir(projectDir)
                     .build()
             val task = project.tasks.create("reflect-sync", SyncTask::class.java)
-            task.extension = createExtension()
+            task.rootDir.set(projectDir)
+            task.taskInfos.set(emptyList())
+            task.includedBuildNames.set(emptyList())
+            task.includedBuildDirs.set(emptyList())
             return method.invoke(task, file, sourceDir) as Boolean
         }
-
-        private fun createExtension(): Opsx.SettingsExtension = Opsx.SettingsExtension()
     }
 }
