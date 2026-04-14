@@ -33,7 +33,7 @@ opsx {
 | Dependency | Version | Purpose |
 |------------|---------|---------|
 | [wrkx](https://github.com/ClankerGuru/wrkx) | 0.40.0 | Multi-repo workspace management |
-| [srcx](https://github.com/ClankerGuru/srcx) | 0.43.0 | Source symbol extraction for LLM context |
+| [srcx](https://github.com/ClankerGuru/srcx) | 0.46.0 | Source symbol extraction for LLM context |
 
 ## Tasks
 
@@ -96,9 +96,9 @@ Changes live in `opsx/changes/<name>/` with:
 
 ```text
 zone.clanker.opsx/
-├── model/       <- Domain value types (Change, ChangeStatus, TaskDefinition, etc.)
+├── model/       <- Domain value types (Change, ChangeStatus, OpsxConfig, TaskDefinition, etc.)
 ├── task/        <- Gradle task classes (one per lifecycle action)
-├── workflow/    <- Orchestration logic (AgentDispatcher, ChangeReader, ChangeWriter, etc.)
+├── workflow/    <- Orchestration logic (AgentDispatcher, TaskExecutor, ChangeReader, etc.)
 └── skill/       <- Agent skill file generation (SkillGenerator, TaskInfo)
 ```
 
@@ -212,11 +212,12 @@ opsx/
 │   └── src/main/kotlin/         <- 10 convention plugin scripts
 ├── src/
 │   ├── main/kotlin/zone/clanker/opsx/
-│   │   ├── Opsx.kt             <- SettingsPlugin + SettingsExtension + constants
+│   │   ├── Opsx.kt             <- SettingsPlugin + SettingsExtension + OpsxConfig + constants
 │   │   ├── model/
 │   │   │   ├── Change.kt              <- Change data class
 │   │   │   ├── ChangeConfig.kt        <- Change configuration
 │   │   │   ├── ChangeStatus.kt        <- Status enum (draft, active, etc.)
+│   │   │   ├── OpsxConfig.kt           <- Serializable settings for config cache
 │   │   │   ├── TaskDefinition.kt      <- Task definition model
 │   │   │   └── TaskStatus.kt          <- Task status enum
 │   │   ├── skill/
@@ -243,6 +244,7 @@ opsx/
 │   │       ├── ChangeReader.kt         <- Read change files from disk
 │   │       ├── ChangeWriter.kt         <- Write change files to disk
 │   │       ├── PromptBuilder.kt        <- Build agent prompts
+│   │       ├── TaskExecutor.kt         <- Execute atomic tasks with dependency ordering
 │   │       └── TaskParser.kt           <- Parse task definitions
 │   ├── test/kotlin/             <- Unit tests (Kotest BehaviorSpec)
 │   └── slopTest/kotlin/         <- Architecture tests (Konsist)
