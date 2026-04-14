@@ -40,13 +40,12 @@ object AgentDispatcher {
         logger.quiet("opsx: log → ${logFile.absolutePath}")
         logger.quiet("opsx: run `tail -f ${logFile.absolutePath}` to watch progress")
 
-        val command = buildCommand(agent, model)
+        val command = buildCommand(agent, promptFile, model)
         val result =
             runCatching {
                 val process =
                     ProcessBuilder(command)
                         .directory(workDir)
-                        .redirectInput(promptFile)
                         .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile))
                         .redirectErrorStream(true)
                         .start()
@@ -73,6 +72,7 @@ object AgentDispatcher {
 
     internal fun buildCommand(
         agent: String,
+        promptFile: File,
         model: String = "",
     ): List<String> =
         when (agent) {
@@ -85,6 +85,7 @@ object AgentDispatcher {
                         add("--model")
                         add(model)
                     }
+                    add(promptFile.readText())
                 }
             "copilot" ->
                 buildList {
@@ -94,6 +95,7 @@ object AgentDispatcher {
                         add("--model")
                         add(model)
                     }
+                    add(promptFile.readText())
                 }
             "codex" ->
                 buildList {
@@ -103,6 +105,7 @@ object AgentDispatcher {
                         add("-m")
                         add(model)
                     }
+                    add(promptFile.readText())
                 }
             "opencode" ->
                 buildList {
@@ -112,6 +115,7 @@ object AgentDispatcher {
                         add("-m")
                         add(model)
                     }
+                    add(promptFile.readText())
                 }
             else -> error("Unknown agent: $agent. Use: claude, copilot, codex, opencode")
         }
