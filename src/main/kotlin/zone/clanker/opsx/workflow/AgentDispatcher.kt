@@ -35,8 +35,10 @@ object AgentDispatcher {
         val promptFile = createPromptFile(prompt)
         val logFile = createLogFile(agent)
 
-        logger.quiet("opsx: dispatching to $agent (timeout ${timeoutSeconds}s, log: ${logFile.name})")
+        logger.quiet("opsx: dispatching to $agent (timeout ${timeoutSeconds}s)")
         logger.quiet("opsx: prompt size ${prompt.length} chars")
+        logger.quiet("opsx: log → ${logFile.absolutePath}")
+        logger.quiet("opsx: run `tail -f ${logFile.absolutePath}` to watch progress")
 
         val command = buildCommand(agent, model)
         val result =
@@ -45,8 +47,8 @@ object AgentDispatcher {
                     ProcessBuilder(command)
                         .directory(workDir)
                         .redirectInput(promptFile)
-                        .redirectOutput(ProcessBuilder.Redirect.INHERIT)
-                        .redirectError(ProcessBuilder.Redirect.INHERIT)
+                        .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile))
+                        .redirectErrorStream(true)
                         .start()
                 val completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
                 if (!completed) {
