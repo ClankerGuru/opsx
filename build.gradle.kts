@@ -10,7 +10,7 @@ dependencies {
 gradlePlugin {
     plugins {
         register("opsx") {
-            id = "zone.clanker.opsx"
+            id = "zone.clanker.gradle.opsx"
             implementationClass = "zone.clanker.opsx.Opsx\$SettingsPlugin"
             displayName = "OpenSpec Workflow Plugin (opsx)"
             description = "Spec-driven development with AI agent orchestration for Gradle workspaces."

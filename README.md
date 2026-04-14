@@ -1,6 +1,6 @@
 # opsx
 
-[![Maven Central](https://img.shields.io/maven-central/v/zone.clanker/plugin-opsx?label=Maven%20Central)](https://central.sonatype.com/artifact/zone.clanker/plugin-opsx)
+[![Maven Central](https://img.shields.io/maven-central/v/zone.clanker/plugin-opsx?label=Maven%20Central)](https://central.sonatype.com/search?q=zone.clanker.plugin-opsx)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.3.0-purple)](https://kotlinlang.org)
 [![Gradle](https://img.shields.io/badge/Gradle-9.4.1-green)](https://gradle.org)
 [![Coverage](https://img.shields.io/badge/Coverage-%E2%89%A590%25-brightgreen)](https://github.com/ClankerGuru/opsx)
@@ -16,7 +16,7 @@ Define changes as structured proposals, apply them with any AI agent, verify cor
 
 ```kotlin
 plugins {
-    id("zone.clanker.opsx") version "<version>"
+    id("zone.clanker.gradle.opsx") version "<version>"
 }
 
 opsx {
