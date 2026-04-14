@@ -223,38 +223,29 @@ data object Opsx {
                 it.rootDir.set(rootProject.projectDir)
                 it.config.set(config)
             }
+            val snapshotTaskInfos =
+                rootProject.tasks
+                    .filter { task -> task.group in SkillGenerator.TRACKED_GROUPS }
+                    .map { task -> TaskInfo(task.name, task.group ?: "", task.description ?: "") }
+            val snapshotBuildNames =
+                rootProject.gradle.includedBuilds.map { build -> build.name }
+            val snapshotBuildDirs =
+                rootProject.gradle.includedBuilds.map { build -> build.projectDir }
+
             rootProject.tasks.register(TASK_SYNC, zone.clanker.opsx.task.SyncTask::class.java) {
                 it.group = GROUP
                 it.description = "Generate agent skills and instruction files"
                 it.rootDir.set(rootProject.projectDir)
-                it.taskInfos.set(
-                    rootProject.provider {
-                        rootProject.tasks
-                            .filter { task -> task.group in SkillGenerator.TRACKED_GROUPS }
-                            .map { task -> TaskInfo(task.name, task.group ?: "", task.description ?: "") }
-                    },
-                )
-                it.includedBuildNames.set(
-                    rootProject.provider {
-                        rootProject.gradle.includedBuilds.map { build -> build.name }
-                    },
-                )
-                it.includedBuildDirs.set(
-                    rootProject.provider {
-                        rootProject.gradle.includedBuilds.map { build -> build.projectDir }
-                    },
-                )
+                it.taskInfos.set(snapshotTaskInfos)
+                it.includedBuildNames.set(snapshotBuildNames)
+                it.includedBuildDirs.set(snapshotBuildDirs)
             }
 
             rootProject.tasks.register(TASK_CLEAN, zone.clanker.opsx.task.CleanTask::class.java) {
                 it.group = GROUP
                 it.description = "Remove all generated skill files and symlinks"
                 it.rootDir.set(rootProject.projectDir)
-                it.includedBuildDirs.set(
-                    rootProject.provider {
-                        rootProject.gradle.includedBuilds.map { build -> build.projectDir }
-                    },
-                )
+                it.includedBuildDirs.set(snapshotBuildDirs)
             }
             rootProject.tasks.register(TASK_LIST, zone.clanker.opsx.task.ListTask::class.java) {
                 it.group = GROUP

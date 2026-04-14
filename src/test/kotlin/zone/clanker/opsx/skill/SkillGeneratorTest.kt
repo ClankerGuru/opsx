@@ -31,7 +31,7 @@ class SkillGeneratorTest :
                 val project = ProjectBuilder.builder().build()
                 val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
 
-                then("generates no files") {
+                then("still generates instruction files") {
                     val result = generator.generate()
                     result.isNotEmpty() shouldBe true
                 }
