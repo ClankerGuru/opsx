@@ -215,6 +215,7 @@ opsx/
 │   │   ├── Opsx.kt             <- SettingsPlugin + SettingsExtension + OpsxConfig + constants
 │   │   ├── model/
 │   │   │   ├── Change.kt              <- Change data class
+│   │   │   ├── Agent.kt               <- Agent enum (CLAUDE, COPILOT, CODEX, OPENCODE)
 │   │   │   ├── ChangeConfig.kt        <- Change configuration
 │   │   │   ├── ChangeStatus.kt        <- Status enum (draft, active, etc.)
 │   │   │   ├── OpsxConfig.kt           <- Serializable settings for config cache

@@ -22,50 +22,96 @@ abstract class CleanTask : DefaultTask() {
 
     @TaskAction
     fun run() {
-        var cleaned = false
         val home = File(System.getProperty("user.home"))
         val sourceDir = File(home, SkillGenerator.SKILLS_DIR)
         val root = rootDir.get()
 
-        // Remove source skills
-        if (sourceDir.exists()) {
-            val count = sourceDir.listFiles().orEmpty().count { it.name.endsWith(".md") }
-            sourceDir.deleteRecursively()
-            logger.quiet("opsx-clean: deleted ~/.clkx/skills/ ($count skills)")
-            cleaned = true
-        }
+        val cleaned =
+            cleanSourceSkills(sourceDir) +
+                cleanAgentSymlinks(home, root, sourceDir) +
+                cleanAgentDefinitions(root) +
+                cleanInstructionFiles(root) +
+                cleanContextDirs(root)
 
-        // Remove symlinks from agent dirs (only ours)
+        if (cleaned == 0) logger.quiet("opsx-clean: nothing to clean")
+    }
+
+    private fun cleanSourceSkills(sourceDir: File): Int {
+        if (!sourceDir.exists()) return 0
+        val count = sourceDir.listFiles().orEmpty().count { it.name.endsWith(".md") }
+        sourceDir.deleteRecursively()
+        logger.quiet("opsx-clean: deleted ~/.clkx/skills/ ($count skills)")
+        return 1
+    }
+
+    private fun cleanAgentSymlinks(
+        home: File,
+        root: File,
+        sourceDir: File,
+    ): Int {
+        var count = 0
         Agent.allSkillDirs.forEach { target ->
-            val dir = File(home, target)
-            if (dir.exists()) {
-                val links = dir.listFiles().orEmpty()
-                val toRemove = links.filter { isOpsxSymlink(it, sourceDir) || isBrokenSymlink(it) }
-                toRemove.forEach { it.delete() }
-                if (toRemove.isNotEmpty()) {
-                    logger.quiet("opsx-clean: removed ${toRemove.size} symlinks from ~/$target")
-                    cleaned = true
-                }
+            listOf(File(home, target), File(root, target)).forEach { dir ->
+                count += cleanSymlinksInDir(dir, root, target, sourceDir)
             }
         }
+        return count
+    }
 
-        // Remove OPSX markers from instruction files
+    private fun cleanSymlinksInDir(
+        dir: File,
+        root: File,
+        target: String,
+        sourceDir: File,
+    ): Int {
+        if (!dir.exists()) return 0
+        val toRemove =
+            dir
+                .listFiles()
+                .orEmpty()
+                .filter { isOpsxSymlink(it, sourceDir) || isBrokenSymlink(it) }
+        toRemove.forEach { it.delete() }
+        if (toRemove.isNotEmpty()) {
+            val rel = runCatching { dir.relativeTo(root).path }.getOrDefault("~/$target")
+            logger.quiet("opsx-clean: removed ${toRemove.size} symlinks from $rel")
+        }
+        return if (toRemove.isNotEmpty()) 1 else 0
+    }
+
+    private fun cleanAgentDefinitions(root: File): Int {
+        var count = 0
+        Agent.entries.forEach { agent ->
+            val agentDir = agent.agentDir ?: return@forEach
+            val agentFile = File(root, "$agentDir/opsx.md")
+            if (agentFile.exists()) {
+                agentFile.delete()
+                logger.quiet("opsx-clean: removed ${agentFile.relativeTo(root).path}")
+                count++
+            }
+        }
+        return count
+    }
+
+    private fun cleanInstructionFiles(root: File): Int {
+        var count = 0
         SkillGenerator.instructionFiles(root).forEach { file ->
             if (file.exists()) {
                 removeMarkers(file)
                 logger.quiet("opsx-clean: removed OPSX section from ${file.name}")
-                cleaned = true
+                count++
             }
         }
+        return count
+    }
 
-        cleanDir(root, root, ".srcx")?.let { cleaned = true }
-
+    private fun cleanContextDirs(root: File): Int {
+        var count = 0
+        cleanDir(root, root, ".srcx")?.let { count++ }
         includedBuildDirs.get().forEach { buildDir ->
-            cleanDir(root, buildDir, ".srcx")?.let { cleaned = true }
-            cleanDir(root, buildDir, ".wrkx")?.let { cleaned = true }
+            cleanDir(root, buildDir, ".srcx")?.let { count++ }
+            cleanDir(root, buildDir, ".wrkx")?.let { count++ }
         }
-
-        if (!cleaned) logger.quiet("opsx-clean: nothing to clean")
+        return count
     }
 
     private fun isOpsxSymlink(
