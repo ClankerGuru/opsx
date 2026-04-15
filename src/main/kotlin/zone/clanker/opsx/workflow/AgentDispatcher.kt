@@ -1,6 +1,7 @@
 package zone.clanker.opsx.workflow
 
 import org.gradle.api.logging.Logging
+import zone.clanker.opsx.model.Agent
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -27,16 +28,16 @@ object AgentDispatcher {
     )
 
     fun dispatch(
-        agent: String,
+        agent: Agent,
         prompt: String,
         workDir: File,
         model: String = "",
         timeoutSeconds: Long = DEFAULT_TIMEOUT_SECONDS,
     ): Result {
         val promptFile = createPromptFile(prompt)
-        val logFile = createLogFile(agent)
+        val logFile = createLogFile(agent.id)
 
-        logger.quiet("opsx: dispatching to $agent (timeout ${timeoutSeconds}s)")
+        logger.quiet("opsx: dispatching to ${agent.id} (timeout ${timeoutSeconds}s)")
         logger.quiet("opsx: prompt size ${prompt.length} chars")
 
         val command = buildCommand(agent, promptFile, model)
@@ -63,73 +64,38 @@ object AgentDispatcher {
                 if (!completed) {
                     process.destroyForcibly()
                     reader.join(READER_JOIN_TIMEOUT_MS)
-                    logger.warn("opsx: $agent timed out after ${timeoutSeconds}s")
+                    logger.warn("opsx: ${agent.id} timed out after ${timeoutSeconds}s")
                     return@runCatching Result(-1, logFile)
                 }
                 reader.join(READER_JOIN_TIMEOUT_MS)
                 Result(process.exitValue(), logFile)
             }.onFailure { e ->
-                logger.warn("opsx: failed to run $agent: ${e.message}")
+                logger.warn("opsx: failed to run ${agent.id}: ${e.message}")
             }.getOrDefault(Result(-1, logFile))
 
         promptFile.delete()
 
         if (result.exitCode == 0) {
-            logger.quiet("opsx: $agent completed successfully")
+            logger.quiet("opsx: ${agent.id} completed successfully")
         } else {
-            logger.warn("opsx: $agent exited with code ${result.exitCode} — log: ${logFile.absolutePath}")
+            logger.warn("opsx: ${agent.id} exited with code ${result.exitCode} — log: ${logFile.absolutePath}")
         }
         return result
     }
 
     internal fun buildCommand(
-        agent: String,
+        agent: Agent,
         promptFile: File,
         model: String = "",
     ): List<String> =
-        when (agent) {
-            "claude" ->
-                buildList {
-                    add("claude")
-                    add("-p")
-                    add("--dangerously-skip-permissions")
-                    if (model.isNotEmpty()) {
-                        add("--model")
-                        add(model)
-                    }
-                    add(promptFile.readText())
-                }
-            "copilot" ->
-                buildList {
-                    add("copilot")
-                    add("-p")
-                    if (model.isNotEmpty()) {
-                        add("--model")
-                        add(model)
-                    }
-                    add(promptFile.readText())
-                }
-            "codex" ->
-                buildList {
-                    add("codex")
-                    add("exec")
-                    if (model.isNotEmpty()) {
-                        add("-m")
-                        add(model)
-                    }
-                    add(promptFile.readText())
-                }
-            "opencode" ->
-                buildList {
-                    add("opencode")
-                    add("run")
-                    if (model.isNotEmpty()) {
-                        add("-m")
-                        add(model)
-                    }
-                    add(promptFile.readText())
-                }
-            else -> error("Unknown agent: $agent. Use: claude, copilot, codex, opencode")
+        buildList {
+            add(agent.cliCommand)
+            addAll(agent.nonInteractiveArgs)
+            if (model.isNotEmpty()) {
+                add(agent.modelFlag)
+                add(model)
+            }
+            add(promptFile.readText())
         }
 
     private fun createPromptFile(prompt: String): File {

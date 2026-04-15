@@ -6,6 +6,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
+import zone.clanker.opsx.model.Agent
 import zone.clanker.opsx.skill.SkillGenerator
 import zone.clanker.opsx.skill.TaskInfo
 import java.io.File
@@ -32,7 +33,7 @@ abstract class SyncTask : DefaultTask() {
     @TaskAction
     fun run() {
         val root = rootDir.get()
-        val agent = defaultAgent.get()
+        val agent = Agent.fromId(defaultAgent.get())
         val generator =
             SkillGenerator(
                 rootDir = root,
@@ -50,9 +51,7 @@ abstract class SyncTask : DefaultTask() {
         }
 
         // Clean only symlinks pointing to our source dir from the active agent's dir
-        val activeSkillDir =
-            SkillGenerator.AGENT_CONFIG[agent]?.skillDir
-                ?: error("Unknown agent '$agent'. Valid agents: ${SkillGenerator.AGENT_CONFIG.keys.joinToString()}")
+        val activeSkillDir = agent.skillDir
         listOf(File(home, activeSkillDir), File(root, activeSkillDir)).forEach { dir ->
             if (dir.exists()) {
                 val links = dir.listFiles().orEmpty()
@@ -73,7 +72,7 @@ abstract class SyncTask : DefaultTask() {
         }
 
         val fileCount = sourceDir.listFiles()?.count { it.name.endsWith(".md") } ?: 0
-        logger.quiet("opsx-sync: $fileCount skills in ~/.clkx/skills/, symlinked to $agent")
+        logger.quiet("opsx-sync: $fileCount skills in ~/.clkx/skills/, symlinked to ${agent.id}")
     }
 
     private fun writeGitignore(

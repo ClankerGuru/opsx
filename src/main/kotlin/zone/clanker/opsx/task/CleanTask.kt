@@ -6,6 +6,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
+import zone.clanker.opsx.model.Agent
 import zone.clanker.opsx.skill.SkillGenerator
 import java.io.File
 import java.nio.file.Files
@@ -35,7 +36,7 @@ abstract class CleanTask : DefaultTask() {
         }
 
         // Remove symlinks from agent dirs (only ours)
-        SkillGenerator.AGENT_TARGETS.forEach { target ->
+        Agent.allSkillDirs.forEach { target ->
             val dir = File(home, target)
             if (dir.exists()) {
                 val links = dir.listFiles().orEmpty()

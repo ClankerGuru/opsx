@@ -1,6 +1,7 @@
 package zone.clanker.opsx.workflow
 
 import org.gradle.api.logging.Logging
+import zone.clanker.opsx.model.Agent
 import zone.clanker.opsx.model.TaskDefinition
 import zone.clanker.opsx.model.TaskStatus
 import java.io.File
@@ -19,10 +20,10 @@ import java.io.File
  */
 class TaskExecutor(
     private val changeDir: File,
-    private val agent: String,
+    private val agent: Agent,
     private val model: String,
     private val workDir: File,
-    private val dispatcher: (String, String, File, String, Long) -> AgentDispatcher.Result = { a, p, w, m, t ->
+    private val dispatcher: (Agent, String, File, String, Long) -> AgentDispatcher.Result = { a, p, w, m, t ->
         AgentDispatcher.dispatch(a, p, w, m, t)
     },
 ) {

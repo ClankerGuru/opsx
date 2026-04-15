@@ -5,6 +5,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
+import zone.clanker.opsx.model.Agent
 import zone.clanker.opsx.model.OpsxConfig
 import zone.clanker.opsx.workflow.AgentDispatcher
 import zone.clanker.opsx.workflow.ChangeReader
@@ -51,7 +52,7 @@ abstract class FfTask : DefaultTask() {
         val fullPrompt = buildFfPrompt(root, context, changeCtx, relPath)
 
         logger.quiet("opsx-ff: asking $agentVal to fast-forward '$name'...")
-        val result = AgentDispatcher.dispatch(agentVal, fullPrompt, root, modelVal)
+        val result = AgentDispatcher.dispatch(Agent.fromId(agentVal), fullPrompt, root, modelVal)
         if (result.exitCode != 0) {
             logger.warn("opsx-ff: agent exited with code ${result.exitCode}")
         }

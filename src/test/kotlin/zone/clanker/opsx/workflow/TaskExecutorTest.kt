@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import zone.clanker.opsx.model.Agent
 import zone.clanker.opsx.model.TaskDefinition
 import zone.clanker.opsx.model.TaskStatus
 import java.io.File
@@ -162,7 +163,7 @@ class TaskExecutorTest :
                 val executor =
                     TaskExecutor(
                         changeDir = changeDir,
-                        agent = "claude",
+                        agent = Agent.CLAUDE,
                         model = "",
                         workDir = changeDir,
                         dispatcher = { _, prompt, _, _, _ ->
@@ -227,7 +228,7 @@ class TaskExecutorTest :
                 val executor =
                     TaskExecutor(
                         changeDir = changeDir,
-                        agent = "claude",
+                        agent = Agent.CLAUDE,
                         model = "",
                         workDir = changeDir,
                         dispatcher = { _, prompt, _, _, _ ->
@@ -279,7 +280,7 @@ class TaskExecutorTest :
                 val executor =
                     TaskExecutor(
                         changeDir = changeDir,
-                        agent = "claude",
+                        agent = Agent.CLAUDE,
                         model = "",
                         workDir = changeDir,
                         dispatcher = { _, prompt, _, _, _ ->
@@ -332,7 +333,7 @@ class TaskExecutorTest :
                 val executor =
                     TaskExecutor(
                         changeDir = changeDir,
-                        agent = "claude",
+                        agent = Agent.CLAUDE,
                         model = "",
                         workDir = changeDir,
                         dispatcher = { _, prompt, _, _, _ ->

@@ -6,6 +6,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
+import zone.clanker.opsx.model.Agent
 import zone.clanker.opsx.model.ChangeConfig
 import zone.clanker.opsx.model.ChangeStatus
 import zone.clanker.opsx.model.OpsxConfig
@@ -112,7 +113,7 @@ abstract class VerifyTask : DefaultTask() {
         val fullPrompt = buildVerifyPrompt(root, context, changeCtx)
 
         logger.quiet("opsx-verify: asking $agentVal to verify '$name'...")
-        val result = AgentDispatcher.dispatch(agentVal, fullPrompt, root, modelVal)
+        val result = AgentDispatcher.dispatch(Agent.fromId(agentVal), fullPrompt, root, modelVal)
         if (result.exitCode == 0) {
             writer.updateStatus(change.dir, ChangeStatus.VERIFIED)
             logger.quiet("opsx-verify: '$name' marked as verified")

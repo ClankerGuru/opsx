@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import zone.clanker.opsx.model.Agent
 import java.io.File
 
 class SkillGeneratorAgentTest :
@@ -19,7 +20,7 @@ class SkillGeneratorAgentTest :
                 tempDir.deleteOnExit()
 
                 val tasks = listOf(TaskInfo("opsx-list", "opsx", "List changes"))
-                val generator = SkillGenerator(tempDir, tasks, emptyList(), "codex")
+                val generator = SkillGenerator(tempDir, tasks, emptyList(), Agent.CODEX)
 
                 generator.generateInstructionFiles(tasks, emptyList())
 
@@ -47,7 +48,7 @@ class SkillGeneratorAgentTest :
                 tempDir.deleteOnExit()
 
                 val tasks = listOf(TaskInfo("opsx-list", "opsx", "List changes"))
-                val generator = SkillGenerator(tempDir, tasks, emptyList(), "copilot")
+                val generator = SkillGenerator(tempDir, tasks, emptyList(), Agent.COPILOT)
 
                 generator.generateInstructionFiles(tasks, emptyList())
 
@@ -74,7 +75,7 @@ class SkillGeneratorAgentTest :
                     }
                 tempDir.deleteOnExit()
 
-                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), "claude")
+                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), Agent.CLAUDE)
                 generator.generateAgentDefinitions()
 
                 then("creates .claude/agents/opsx.md") {
@@ -108,7 +109,7 @@ class SkillGeneratorAgentTest :
                     }
                 tempDir.deleteOnExit()
 
-                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), "copilot")
+                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), Agent.COPILOT)
                 generator.generateAgentDefinitions()
 
                 then("creates .github/agents/opsx.md") {
@@ -140,7 +141,7 @@ class SkillGeneratorAgentTest :
                     }
                 tempDir.deleteOnExit()
 
-                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), "codex")
+                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), Agent.CODEX)
                 generator.generateAgentDefinitions()
 
                 then("does not create any agent definition file") {
@@ -159,7 +160,7 @@ class SkillGeneratorAgentTest :
                     }
                 tempDir.deleteOnExit()
 
-                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), "opencode")
+                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), Agent.OPENCODE)
                 generator.generateAgentDefinitions()
 
                 then("does not create any agent definition file") {
@@ -188,21 +189,21 @@ class SkillGeneratorAgentTest :
                 val home = System.getProperty("user.home")
 
                 then("returns only source dir and claude dir for claude agent") {
-                    val dirs = SkillGenerator.generatedDirs("claude")
+                    val dirs = SkillGenerator.generatedDirs(Agent.CLAUDE)
                     dirs.size shouldBe 2
                     dirs.map { it.path } shouldContain File(home, ".clkx/skills").path
                     dirs.map { it.path } shouldContain File(home, ".claude/commands").path
                 }
 
                 then("returns only source dir and copilot dir for copilot agent") {
-                    val dirs = SkillGenerator.generatedDirs("copilot")
+                    val dirs = SkillGenerator.generatedDirs(Agent.COPILOT)
                     dirs.size shouldBe 2
                     dirs.map { it.path } shouldContain File(home, ".clkx/skills").path
                     dirs.map { it.path } shouldContain File(home, ".github/prompts").path
                 }
 
                 then("throws for unknown agent") {
-                    val result = runCatching { SkillGenerator.generatedDirs("unknown") }
+                    val result = runCatching { Agent.fromId("unknown") }
                     result.isFailure shouldBe true
                     result.exceptionOrNull()!!.message shouldContain "Unknown agent"
                 }
@@ -224,33 +225,33 @@ class SkillGeneratorAgentTest :
                 val rootDir = File("/fake/root")
 
                 then("returns AGENTS.md and CLAUDE.md for claude agent") {
-                    val files = SkillGenerator.instructionFiles(rootDir, "claude")
+                    val files = SkillGenerator.instructionFiles(rootDir, Agent.CLAUDE)
                     files.size shouldBe 2
                     files.map { it.name } shouldContain "AGENTS.md"
                     files.map { it.name } shouldContain "CLAUDE.md"
                 }
 
                 then("returns AGENTS.md and copilot-instructions.md for copilot agent") {
-                    val files = SkillGenerator.instructionFiles(rootDir, "copilot")
+                    val files = SkillGenerator.instructionFiles(rootDir, Agent.COPILOT)
                     files.size shouldBe 2
                     files.map { it.name } shouldContain "AGENTS.md"
                     files.map { it.name } shouldContain "copilot-instructions.md"
                 }
 
                 then("returns only AGENTS.md for codex agent") {
-                    val files = SkillGenerator.instructionFiles(rootDir, "codex")
+                    val files = SkillGenerator.instructionFiles(rootDir, Agent.CODEX)
                     files.size shouldBe 1
                     files.map { it.name } shouldContain "AGENTS.md"
                 }
 
                 then("returns only AGENTS.md for opencode agent") {
-                    val files = SkillGenerator.instructionFiles(rootDir, "opencode")
+                    val files = SkillGenerator.instructionFiles(rootDir, Agent.OPENCODE)
                     files.size shouldBe 1
                     files.map { it.name } shouldContain "AGENTS.md"
                 }
 
                 then("throws for unknown agent") {
-                    val result = runCatching { SkillGenerator.instructionFiles(rootDir, "unknown") }
+                    val result = runCatching { Agent.fromId("unknown") }
                     result.isFailure shouldBe true
                     result.exceptionOrNull()!!.message shouldContain "Unknown agent"
                 }

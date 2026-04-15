@@ -1,6 +1,7 @@
 package zone.clanker.opsx.skill
 
 import zone.clanker.opsx.Opsx
+import zone.clanker.opsx.model.Agent
 import java.io.File
 import java.nio.file.Files
 
@@ -8,12 +9,9 @@ class SkillGenerator(
     private val rootDir: File,
     private val tasks: List<TaskInfo>,
     private val buildNames: List<String>,
-    private val defaultAgent: String,
+    private val defaultAgent: Agent,
+    private val additionalSourceDirs: List<File> = emptyList(),
 ) {
-    private fun activeTarget(): AgentTarget =
-        AGENT_CONFIG[defaultAgent]
-            ?: error("Unknown agent '$defaultAgent'. Valid agents: ${AGENT_CONFIG.keys.joinToString()}")
-
     fun generate(): List<File> {
         val sourceDir = generateSkillFiles(tasks, buildNames)
         generateInstructionFiles(tasks, buildNames)
@@ -34,8 +32,19 @@ class SkillGenerator(
             File(sourceDir, "${task.name}.md").writeText(buildCommandFile(task, builds))
         }
 
+        // Copy .md files from additional source directories into the source dir
+        additionalSourceDirs.forEach { extraDir ->
+            if (extraDir.exists()) {
+                extraDir
+                    .listFiles()
+                    .orEmpty()
+                    .filter { it.isFile && it.name.endsWith(".md") }
+                    .forEach { file -> file.copyTo(File(sourceDir, file.name), overwrite = true) }
+            }
+        }
+
         // Symlink from the active agent's expected location (home + project)
-        val skillDir = activeTarget().skillDir
+        val skillDir = defaultAgent.skillDir
         val allTargetDirs =
             listOf(
                 File(homeDir(), skillDir),
@@ -43,9 +52,10 @@ class SkillGenerator(
             )
         allTargetDirs.forEach { targetDir ->
             targetDir.mkdirs()
-            tasks.forEach { task ->
-                val source = File(sourceDir, "${task.name}.md").toPath()
-                val link = File(targetDir, "${task.name}.md").toPath()
+            val allSkillFiles = sourceDir.listFiles().orEmpty().filter { it.name.endsWith(".md") }
+            allSkillFiles.forEach { skillFile ->
+                val source = skillFile.toPath()
+                val link = File(targetDir, skillFile.name).toPath()
                 runCatching {
                     // Only remove the file if it is a symlink pointing into our source dir.
                     // This avoids clobbering user-created files that happen to share the same name.
@@ -140,7 +150,7 @@ class SkillGenerator(
         writeWithMarkers(agentsMd, instructions)
 
         // Write agent-specific instruction file only if configured
-        val instructionFile = activeTarget().instructionFile
+        val instructionFile = defaultAgent.instructionFile
         if (instructionFile != null) {
             val agentFile = File(rootDir, instructionFile)
             agentFile.parentFile?.mkdirs()
@@ -149,7 +159,7 @@ class SkillGenerator(
     }
 
     internal fun generateAgentDefinitions() {
-        val agentDir = activeTarget().agentDir ?: return
+        val agentDir = defaultAgent.agentDir ?: return
         val dir = File(rootDir, agentDir)
         dir.mkdirs()
         val file = File(dir, "opsx.md")
@@ -160,7 +170,7 @@ class SkillGenerator(
     private fun buildAgentDefinition(): String =
         buildString {
             when (defaultAgent) {
-                "claude" -> {
+                Agent.CLAUDE -> {
                     appendLine("---")
                     appendLine("name: opsx")
                     appendLine("description: |")
@@ -171,10 +181,11 @@ class SkillGenerator(
                     appendLine("---")
                     appendLine()
                 }
-                "copilot" -> {
+                Agent.COPILOT -> {
                     appendLine("# opsx Agent")
                     appendLine()
                 }
+                else -> { /* no header for codex/opencode */ }
             }
             appendLine("You are the opsx workflow agent. You manage structured changes")
             appendLine("in this workspace using the opsx, srcx, and wrkx Gradle plugins.")
@@ -359,26 +370,10 @@ class SkillGenerator(
     )
 
     companion object {
-        val TRACKED_GROUPS =
-            setOf("opsx", "srcx", "claude", "copilot", "codex", "opencode", "wrkx")
+        val TRACKED_GROUPS: Set<String> =
+            setOf("opsx", "srcx", "wrkx") + Agent.allIds
 
         const val SKILLS_DIR = ".clkx/skills"
-
-        data class AgentTarget(
-            val skillDir: String,
-            val instructionFile: String?,
-            val agentDir: String?,
-        )
-
-        val AGENT_CONFIG =
-            mapOf(
-                "claude" to AgentTarget(".claude/commands", "CLAUDE.md", ".claude/agents"),
-                "copilot" to AgentTarget(".github/prompts", ".github/copilot-instructions.md", ".github/agents"),
-                "codex" to AgentTarget(".codex/prompts", null, null),
-                "opencode" to AgentTarget(".opencode/commands", null, null),
-            )
-
-        val AGENT_TARGETS = AGENT_CONFIG.values.map { it.skillDir }
 
         val AGENT_TASKS =
             setOf(
@@ -392,14 +387,13 @@ class SkillGenerator(
                 "opsx-ff",
             )
 
-        fun generatedDirs(agent: String? = null): List<File> {
+        fun generatedDirs(agent: Agent? = null): List<File> {
             val home = File(System.getProperty("user.home"))
             val targets =
                 if (agent != null) {
-                    val config = AGENT_CONFIG[agent] ?: error("Unknown agent: $agent")
-                    listOf(config.skillDir)
+                    listOf(agent.skillDir)
                 } else {
-                    AGENT_TARGETS
+                    Agent.allSkillDirs
                 }
             return listOf(File(home, SKILLS_DIR)) +
                 targets.map { File(home, it) }
@@ -407,12 +401,11 @@ class SkillGenerator(
 
         fun instructionFiles(
             rootDir: File,
-            agent: String? = null,
+            agent: Agent? = null,
         ): List<File> {
             if (agent != null) {
-                val config = AGENT_CONFIG[agent] ?: error("Unknown agent: $agent")
                 val files = mutableListOf(File(rootDir, "AGENTS.md"))
-                config.instructionFile?.let { files.add(File(rootDir, it)) }
+                agent.instructionFile?.let { files.add(File(rootDir, it)) }
                 return files
             }
             return listOf(

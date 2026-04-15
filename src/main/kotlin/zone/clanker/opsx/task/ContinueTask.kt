@@ -5,6 +5,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
+import zone.clanker.opsx.model.Agent
 import zone.clanker.opsx.model.OpsxConfig
 import zone.clanker.opsx.workflow.ChangeReader
 import zone.clanker.opsx.workflow.TaskExecutor
@@ -51,7 +52,7 @@ abstract class ContinueTask : DefaultTask() {
         val executor =
             TaskExecutor(
                 changeDir = change.dir,
-                agent = agentVal,
+                agent = Agent.fromId(agentVal),
                 model = modelVal,
                 workDir = root,
             )
