@@ -73,16 +73,16 @@ class OpsxPluginTest :
                     ext.outputDir = "custom-output"
                     ext.outputDir shouldBe "custom-output"
                 }
-                then("agents is mutable") {
-                    ext.agents.add(Agent.COPILOT)
+                then("agents is assignable") {
+                    ext.agents = listOf(Agent.COPILOT)
                     ext.agents shouldContain Agent.COPILOT
                 }
-                then("skillDirectories is mutable") {
-                    ext.skillDirectories.add("custom-skills")
+                then("skillDirectories is assignable") {
+                    ext.skillDirectories = listOf("custom-skills")
                     ext.skillDirectories shouldContain "custom-skills"
                 }
-                then("agentDirectories is mutable") {
-                    ext.agentDirectories.add("custom-agents")
+                then("agentDirectories is assignable") {
+                    ext.agentDirectories = listOf("custom-agents")
                     ext.agentDirectories shouldContain "custom-agents"
                 }
                 then("specsDir is mutable") {
@@ -569,7 +569,7 @@ class OpsxPluginTest :
             `when`("extension.agents is set") {
                 val project = ProjectBuilder.builder().build()
                 val ext = project.extensions.create(Opsx.EXTENSION_NAME, Opsx.SettingsExtension::class.java)
-                ext.agents.addAll(listOf(Agent.COPILOT, Agent.CLAUDE))
+                ext.agents = listOf(Agent.COPILOT, Agent.CLAUDE)
                 val plugin = Opsx.SettingsPlugin()
                 plugin.registerTasks(project, ext)
 

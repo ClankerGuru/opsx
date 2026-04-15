@@ -57,9 +57,9 @@ data object Opsx {
 
     open class SettingsExtension {
         var outputDir: String = OUTPUT_DIR
-        var agents: MutableList<Agent> = mutableListOf()
-        var skillDirectories: MutableList<String> = mutableListOf()
-        var agentDirectories: MutableList<String> = mutableListOf()
+        var agents: List<Agent> = emptyList()
+        var skillDirectories: List<String> = emptyList()
+        var agentDirectories: List<String> = emptyList()
         var specsDir: String = "specs"
         var changesDir: String = "changes"
         var projectFile: String = "project.md"
