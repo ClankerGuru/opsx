@@ -6,6 +6,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.gradle.testfixtures.ProjectBuilder
+import zone.clanker.opsx.model.Agent
 import zone.clanker.opsx.task.CleanTask
 import zone.clanker.opsx.task.ListTask
 import zone.clanker.opsx.task.ProposeTask
@@ -73,8 +74,8 @@ class OpsxPluginTest :
                     ext.outputDir shouldBe "custom-output"
                 }
                 then("agents is mutable") {
-                    ext.agents.add("copilot")
-                    ext.agents shouldContain "copilot"
+                    ext.agents.add(Agent.COPILOT)
+                    ext.agents shouldContain Agent.COPILOT
                 }
                 then("skillDirectories is mutable") {
                     ext.skillDirectories.add("custom-skills")
@@ -568,7 +569,7 @@ class OpsxPluginTest :
             `when`("extension.agents is set") {
                 val project = ProjectBuilder.builder().build()
                 val ext = project.extensions.create(Opsx.EXTENSION_NAME, Opsx.SettingsExtension::class.java)
-                ext.agents.addAll(listOf("copilot", "claude"))
+                ext.agents.addAll(listOf(Agent.COPILOT, Agent.CLAUDE))
                 val plugin = Opsx.SettingsPlugin()
                 plugin.registerTasks(project, ext)
 

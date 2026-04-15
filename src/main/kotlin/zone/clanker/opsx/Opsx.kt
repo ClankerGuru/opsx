@@ -8,6 +8,7 @@ import org.gradle.api.initialization.Settings
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
+import zone.clanker.opsx.model.Agent
 import zone.clanker.opsx.model.OpsxConfig
 import zone.clanker.opsx.skill.SkillGenerator
 import zone.clanker.opsx.skill.TaskInfo
@@ -56,7 +57,7 @@ data object Opsx {
 
     open class SettingsExtension {
         var outputDir: String = OUTPUT_DIR
-        var agents: MutableList<String> = mutableListOf()
+        var agents: MutableList<Agent> = mutableListOf()
         var skillDirectories: MutableList<String> = mutableListOf()
         var agentDirectories: MutableList<String> = mutableListOf()
         var specsDir: String = "specs"
@@ -105,7 +106,11 @@ data object Opsx {
                     .gradleProperty(PROP_AGENT)
                     .orElse(
                         rootProject.provider {
-                            extension.agents.firstOrNull() ?: ""
+                            extension.agents.firstOrNull()?.id
+                                ?: error(
+                                    "No agent configured. Set opsx.agents in settings.gradle.kts " +
+                                        "or pass -P${PROP_AGENT}=claude",
+                                )
                         },
                     )
             val modelProp = rootProject.providers.gradleProperty(PROP_MODEL).orElse("")
@@ -245,7 +250,7 @@ data object Opsx {
                 it.taskInfos.set(snapshotTaskInfos)
                 it.includedBuildNames.set(snapshotBuildNames)
                 it.includedBuildDirs.set(snapshotBuildDirs)
-                it.agents.set(extension.agents)
+                it.agents.set(extension.agents.map { a -> a.id })
                 it.skillDirectories.set(extension.skillDirectories)
                 it.agentDirectories.set(extension.agentDirectories)
             }

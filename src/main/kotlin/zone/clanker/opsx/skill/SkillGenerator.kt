@@ -187,13 +187,13 @@ class SkillGenerator(
         val file = File(dir, "opsx.md")
         file.writeText(buildAgentDefinition(agent))
 
-        // Copy .md files from additional agent directories
+        // Copy .md files from additional agent directories (skip opsx.md — reserved for generated)
         additionalAgentDirs.forEach { extraDir ->
             if (extraDir.exists()) {
                 extraDir
                     .listFiles()
                     .orEmpty()
-                    .filter { it.isFile && it.name.endsWith(".md") }
+                    .filter { it.isFile && it.name.endsWith(".md") && it.name != GENERATED_AGENT_FILE }
                     .forEach { src -> src.copyTo(File(dir, src.name), overwrite = true) }
             }
         }
@@ -428,6 +428,7 @@ class SkillGenerator(
             setOf("opsx", "srcx", "wrkx") + Agent.allIds
 
         const val SKILLS_DIR = ".clkx/skills"
+        private const val GENERATED_AGENT_FILE = "opsx.md"
 
         val AGENT_TASKS =
             setOf(

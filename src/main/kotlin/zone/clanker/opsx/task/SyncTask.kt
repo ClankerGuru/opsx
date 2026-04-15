@@ -85,15 +85,17 @@ abstract class SyncTask : DefaultTask() {
     }
 
     private fun cleanAgentSymlinks(
-        parsedAgents: List<Agent>,
+        @Suppress("UNUSED_PARAMETER") parsedAgents: List<Agent>,
         home: File,
         root: File,
         sourceDir: File,
     ) {
+        // Clean ALL agent dirs, not just configured ones — removes stale symlinks from removed agents
         val dirs =
-            parsedAgents.flatMap { agent ->
-                listOf(File(home, agent.skillDir), File(root, agent.skillDir))
-            }
+            Agent.entries
+                .flatMap { agent ->
+                    listOf(File(home, agent.skillDir), File(root, agent.skillDir))
+                }.distinct()
         dirs.filter { it.exists() }.forEach { dir ->
             dir
                 .listFiles()
