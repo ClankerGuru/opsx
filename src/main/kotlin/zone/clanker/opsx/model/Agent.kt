@@ -1,10 +1,12 @@
 package zone.clanker.opsx.model
 
+@Suppress("LongParameterList")
 enum class Agent(
     val cliCommand: String,
     val nonInteractiveArgs: List<String>,
     val modelFlag: String,
     val skillDir: String,
+    val skillExtension: String,
     val instructionFile: String?,
     val agentDir: String?,
 ) : java.io.Serializable {
@@ -13,6 +15,7 @@ enum class Agent(
         listOf("-p", "--dangerously-skip-permissions"),
         "--model",
         ".claude/commands",
+        ".md",
         "CLAUDE.md",
         ".claude/agents",
     ),
@@ -21,6 +24,7 @@ enum class Agent(
         listOf("-p"),
         "--model",
         ".github/prompts",
+        ".prompt.md",
         ".github/copilot-instructions.md",
         ".github/agents",
     ),
@@ -29,6 +33,7 @@ enum class Agent(
         listOf("exec"),
         "-m",
         ".codex/prompts",
+        ".md",
         null,
         null,
     ),
@@ -37,6 +42,7 @@ enum class Agent(
         listOf("run"),
         "-m",
         ".opencode/commands",
+        ".md",
         null,
         null,
     ),

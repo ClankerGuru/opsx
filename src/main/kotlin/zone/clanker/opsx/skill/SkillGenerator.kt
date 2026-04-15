@@ -33,56 +33,52 @@ class SkillGenerator(
             File(sourceDir, "${task.name}.md").writeText(buildCommandFile(task, builds))
         }
 
-        // Copy .md files from additional source directories into the source dir
+        // Copy .md files from additional source directories — never override ours
+        val ownedNames = tasks.map { "${it.name}.md" }.toSet()
         additionalSourceDirs.forEach { extraDir ->
             if (extraDir.exists()) {
                 extraDir
                     .listFiles()
                     .orEmpty()
-                    .filter { it.isFile && it.name.endsWith(".md") }
+                    .filter { it.isFile && it.name.endsWith(".md") && it.name !in ownedNames }
                     .forEach { file -> file.copyTo(File(sourceDir, file.name), overwrite = true) }
             }
         }
 
         // Symlink from each agent's expected location (home + project)
         agents.forEach { agent ->
-            val allTargetDirs =
-                listOf(
-                    File(homeDir(), agent.skillDir),
-                    File(rootDir, agent.skillDir),
-                )
-            allTargetDirs.forEach { targetDir ->
-                targetDir.mkdirs()
-                val allSkillFiles = sourceDir.listFiles().orEmpty().filter { it.name.endsWith(".md") }
-                allSkillFiles.forEach { skillFile ->
-                    val source = skillFile.toPath()
-                    val link = File(targetDir, skillFile.name).toPath()
-                    runCatching {
-                        // Only remove the file if it is a symlink pointing into our source dir.
-                        // This avoids clobbering user-created files that happen to share the same name.
-                        if (Files.exists(link) || Files.isSymbolicLink(link)) {
-                            if (Files.isSymbolicLink(link) &&
-                                Files.readSymbolicLink(link).startsWith(sourceDir.toPath())
-                            ) {
-                                Files.delete(link)
-                            } else if (!Files.isSymbolicLink(link)) {
-                                // Not a symlink — leave user-owned file untouched
-                                return@runCatching
-                            } else {
-                                // Symlink pointing elsewhere — leave it
-                                return@runCatching
-                            }
-                        }
-                        Files.createSymbolicLink(link, source)
-                    }
-                }
-            }
+            val targetDirs = listOf(File(homeDir(), agent.skillDir), File(rootDir, agent.skillDir))
+            targetDirs.forEach { dir -> symlinkSkills(dir, sourceDir, agent) }
         }
 
         return sourceDir
     }
 
     private fun homeDir(): String = System.getProperty("user.home")
+
+    private fun symlinkSkills(
+        targetDir: File,
+        sourceDir: File,
+        agent: Agent,
+    ) {
+        targetDir.mkdirs()
+        val skillFiles = sourceDir.listFiles().orEmpty().filter { it.name.endsWith(".md") }
+        skillFiles.forEach { skillFile ->
+            val source = skillFile.toPath()
+            val linkName = skillFile.nameWithoutExtension + agent.skillExtension
+            val link = File(targetDir, linkName).toPath()
+            runCatching {
+                if (Files.isSymbolicLink(link) &&
+                    Files.readSymbolicLink(link).startsWith(sourceDir.toPath())
+                ) {
+                    Files.delete(link)
+                } else if (Files.exists(link)) {
+                    return@runCatching // user-owned file or foreign symlink — leave it
+                }
+                Files.createSymbolicLink(link, source)
+            }
+        }
+    }
 
     internal fun buildCommandFile(
         task: TaskInfo,

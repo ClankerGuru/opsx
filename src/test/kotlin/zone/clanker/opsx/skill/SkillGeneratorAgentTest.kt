@@ -244,8 +244,8 @@ class SkillGeneratorAgentTest :
                     Files.isSymbolicLink(path) shouldBe true
                 }
 
-                then("creates symlinks in .github/prompts/") {
-                    val path = File(tempDir, ".github/prompts/opsx-list.md").toPath()
+                then("creates symlinks in .github/prompts/ with .prompt.md extension") {
+                    val path = File(tempDir, ".github/prompts/opsx-list.prompt.md").toPath()
                     Files.exists(path) shouldBe true
                     Files.isSymbolicLink(path) shouldBe true
                 }
