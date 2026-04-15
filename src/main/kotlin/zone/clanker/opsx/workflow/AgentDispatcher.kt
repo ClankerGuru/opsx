@@ -22,9 +22,12 @@ object AgentDispatcher {
     internal const val DEFAULT_TIMEOUT_SECONDS = 600L
     private const val READER_JOIN_TIMEOUT_MS = 5000L
 
+    enum class FailureReason { TIMEOUT, DISPATCH_EXCEPTION }
+
     data class Result(
         val exitCode: Int,
         val logFile: File?,
+        val reason: FailureReason? = null,
     )
 
     fun dispatch(
@@ -63,15 +66,15 @@ object AgentDispatcher {
                 val completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
                 if (!completed) {
                     process.destroyForcibly()
-                    reader.join(READER_JOIN_TIMEOUT_MS)
+                    joinReader(reader, agent)
                     logger.warn("opsx: ${agent.id} timed out after ${timeoutSeconds}s")
-                    return@runCatching Result(-1, logFile)
+                    return@runCatching Result(-1, logFile, FailureReason.TIMEOUT)
                 }
-                reader.join(READER_JOIN_TIMEOUT_MS)
+                joinReader(reader, agent)
                 Result(process.exitValue(), logFile)
             }.onFailure { e ->
                 logger.warn("opsx: failed to run ${agent.id}: ${e.message}")
-            }.getOrDefault(Result(-1, logFile))
+            }.getOrDefault(Result(-1, logFile, FailureReason.DISPATCH_EXCEPTION))
 
         promptFile.delete()
 
@@ -97,6 +100,17 @@ object AgentDispatcher {
             }
             add(promptFile.readText())
         }
+
+    private fun joinReader(
+        reader: Thread,
+        agent: Agent,
+    ) {
+        reader.join(READER_JOIN_TIMEOUT_MS)
+        if (reader.isAlive) {
+            logger.warn("opsx: output reader still running for ${agent.id}, interrupting")
+            reader.interrupt()
+        }
+    }
 
     private fun createPromptFile(prompt: String): File {
         val file = File.createTempFile("opsx-prompt-", ".md")

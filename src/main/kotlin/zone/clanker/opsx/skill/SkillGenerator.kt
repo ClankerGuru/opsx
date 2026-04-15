@@ -145,6 +145,12 @@ class SkillGenerator(
     ) {
         val instructions = buildInstructions(tasks, builds)
 
+        // Clean inactive agent instruction files first
+        Agent.entries
+            .filter { it != defaultAgent }
+            .mapNotNull { it.instructionFile }
+            .forEach { path -> removeMarkersIfExists(File(rootDir, path)) }
+
         // Always write AGENTS.md (universal fallback)
         val agentsMd = File(rootDir, "AGENTS.md")
         writeWithMarkers(agentsMd, instructions)
@@ -159,6 +165,15 @@ class SkillGenerator(
     }
 
     internal fun generateAgentDefinitions() {
+        // Clean inactive agent definitions first
+        Agent.entries
+            .filter { it != defaultAgent }
+            .mapNotNull { it.agentDir }
+            .forEach { path ->
+                val file = File(rootDir, "$path/opsx.md")
+                if (file.exists()) file.delete()
+            }
+
         val agentDir = defaultAgent.agentDir ?: return
         val dir = File(rootDir, agentDir)
         dir.mkdirs()
@@ -203,7 +218,7 @@ class SkillGenerator(
             appendLine()
             appendLine("## Before You Do Anything")
             appendLine()
-            appendLine("1. Run `opsx-status` to see active changes and their state")
+            appendLine("1. Run `/opsx-status` to see active changes and their state")
             appendLine("2. Read `.srcx/context.md` for the codebase overview")
             appendLine("3. Read the split context files for details:")
             appendLine("   - `.srcx/hub-classes.md` — Most-depended-on classes (high blast radius)")
@@ -218,18 +233,22 @@ class SkillGenerator(
             appendLine("draft -> active -> in-progress -> completed -> verified -> archived")
             appendLine("```")
             appendLine()
-            appendLine("- **Propose**: `opsx-propose -Pzone.clanker.opsx.prompt=\"...\"`")
+            append("- **Propose**: ")
+            appendLine("`./gradlew -q opsx-propose -P${Opsx.PROP_PROMPT}=\"...\"`")
             appendLine("  Creates proposal.md, design.md, tasks.md")
-            appendLine("- **Apply**: `opsx-apply -Pzone.clanker.opsx.change=\"name\"`")
+            append("- **Apply**: ")
+            appendLine("`./gradlew -q opsx-apply -P${Opsx.PROP_CHANGE}=\"name\"`")
             appendLine("  Executes tasks or dispatches agent")
-            appendLine("- **Verify**: `opsx-verify -Pzone.clanker.opsx.change=\"name\"`")
+            append("- **Verify**: ")
+            appendLine("`./gradlew -q opsx-verify -P${Opsx.PROP_CHANGE}=\"name\"`")
             appendLine("  Runs verification command or agent review")
-            appendLine("- **Archive**: `opsx-archive -Pzone.clanker.opsx.change=\"name\"`")
+            append("- **Archive**: ")
+            appendLine("`./gradlew -q opsx-archive -P${Opsx.PROP_CHANGE}=\"name\"`")
             appendLine("  Closes the change (must be verified)")
             appendLine()
-            appendLine("Additional commands: `opsx-continue` (resume), `opsx-explore` (codebase Q&A),")
-            appendLine("`opsx-feedback` (refine a change), `opsx-ff` (fast-forward to current state),")
-            appendLine("`opsx-onboard` (explain the project), `opsx-status` (show all changes).")
+            appendLine("Additional: `/opsx-continue` (resume), `/opsx-explore` (Q&A),")
+            appendLine("`/opsx-feedback` (refine), `/opsx-ff` (fast-forward),")
+            appendLine("`/opsx-onboard` (onboard), `/opsx-status` (show changes).")
             appendLine()
             appendLine("## Change Directory Structure")
             appendLine()
@@ -244,12 +263,24 @@ class SkillGenerator(
             appendLine()
             appendLine("- MUST use opsx Gradle tasks for all workflow operations")
             appendLine("- MUST read `.srcx/context.md` before making changes")
-            appendLine("- MUST run `opsx-status` before starting any work")
+            appendLine("- MUST run `/opsx-status` before starting any work")
             appendLine("- MUST NOT use grep/sed/awk for refactoring — use srcx tasks")
             appendLine("- MUST NOT manually create or edit files in `opsx/changes/`")
             appendLine("- MUST NOT manually edit files across included builds")
             appendLine("- MUST NOT bypass the lifecycle — propose first, then apply")
         }
+
+    private fun removeMarkersIfExists(file: File) {
+        if (!file.exists()) return
+        val marker = "<!-- OPSX:AUTO -->"
+        val endMarker = "<!-- /OPSX:AUTO -->"
+        val content = file.readText()
+        if (!content.contains(marker)) return
+        val before = content.substringBefore(marker).trimEnd()
+        val after = content.substringAfter(endMarker, "").trimStart()
+        val result = "$before\n$after".trim()
+        if (result.isEmpty()) file.delete() else file.writeText("$result\n")
+    }
 
     private fun writeWithMarkers(
         file: File,
