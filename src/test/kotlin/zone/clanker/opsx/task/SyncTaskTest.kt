@@ -3,6 +3,7 @@ package zone.clanker.opsx.task
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import java.io.File
 import java.nio.file.Files
 
@@ -126,20 +127,13 @@ class SyncTaskTest :
 
                 val writeMethod =
                     SyncTask::class.java.getDeclaredMethod(
-                        "writeGitignore",
+                        "writeOpsxGitignore",
                         File::class.java,
                         String::class.java,
                     )
                 writeMethod.isAccessible = true
 
-                val ensureMethod =
-                    SyncTask::class.java.getDeclaredMethod(
-                        "ensureOpsxIgnorePattern",
-                        File::class.java,
-                    )
-                ensureMethod.isAccessible = true
-
-                then("writeGitignore creates .gitignore with content") {
+                then("writeOpsxGitignore creates .gitignore with content") {
                     writeMethod.invoke(task, skillsDir, "*\n")
                     val gitignore = File(skillsDir, ".gitignore")
                     gitignore.exists() shouldBe true
@@ -148,29 +142,23 @@ class SyncTaskTest :
                     content shouldContain "*"
                 }
 
-                then("ensureOpsxIgnorePattern creates .gitignore with opsx-* pattern") {
-                    ensureMethod.invoke(task, agentDir)
+                then("writeOpsxGitignore creates .gitignore with skill patterns") {
+                    writeMethod.invoke(task, agentDir, "opsx-*\nsrcx-*\nwrkx-*\n")
                     val gitignore = File(agentDir, ".gitignore")
                     gitignore.exists() shouldBe true
                     val content = gitignore.readText()
                     content shouldContain "opsx-*"
+                    content shouldContain "srcx-*"
+                    content shouldContain "wrkx-*"
                 }
 
-                then("ensureOpsxIgnorePattern appends to existing .gitignore") {
+                then("writeOpsxGitignore overwrites existing content") {
                     val gitignore = File(agentDir, ".gitignore")
-                    gitignore.writeText("my-custom-rule\n")
-                    ensureMethod.invoke(task, agentDir)
+                    gitignore.writeText("old-content\n")
+                    writeMethod.invoke(task, agentDir, "opsx-*\n")
                     val content = gitignore.readText()
-                    content shouldContain "my-custom-rule"
                     content shouldContain "opsx-*"
-                }
-
-                then("ensureOpsxIgnorePattern does not duplicate pattern") {
-                    val gitignore = File(agentDir, ".gitignore")
-                    gitignore.writeText("existing\nopsx-*\n")
-                    ensureMethod.invoke(task, agentDir)
-                    val content = gitignore.readText()
-                    content.split("opsx-*").size shouldBe 2 // appears once
+                    content shouldNotContain "old-content"
                 }
             }
         }
