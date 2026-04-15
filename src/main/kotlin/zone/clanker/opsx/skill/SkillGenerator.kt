@@ -1,6 +1,7 @@
 package zone.clanker.opsx.skill
 
 import zone.clanker.opsx.Opsx
+import zone.clanker.opsx.model.Agent
 import java.io.File
 import java.nio.file.Files
 
@@ -8,10 +9,13 @@ class SkillGenerator(
     private val rootDir: File,
     private val tasks: List<TaskInfo>,
     private val buildNames: List<String>,
+    private val defaultAgent: Agent,
+    private val additionalSourceDirs: List<File> = emptyList(),
 ) {
     fun generate(): List<File> {
         val sourceDir = generateSkillFiles(tasks, buildNames)
         generateInstructionFiles(tasks, buildNames)
+        generateAgentDefinitions()
 
         return listOf(sourceDir)
     }
@@ -28,19 +32,30 @@ class SkillGenerator(
             File(sourceDir, "${task.name}.md").writeText(buildCommandFile(task, builds))
         }
 
-        // Symlink from each agent's expected location (home + project)
-        val allTargetDirs =
-            AGENT_TARGETS.flatMap { target ->
-                listOf(
-                    File(homeDir(), target),
-                    File(rootDir, target),
-                )
+        // Copy .md files from additional source directories into the source dir
+        additionalSourceDirs.forEach { extraDir ->
+            if (extraDir.exists()) {
+                extraDir
+                    .listFiles()
+                    .orEmpty()
+                    .filter { it.isFile && it.name.endsWith(".md") }
+                    .forEach { file -> file.copyTo(File(sourceDir, file.name), overwrite = true) }
             }
+        }
+
+        // Symlink from the active agent's expected location (home + project)
+        val skillDir = defaultAgent.skillDir
+        val allTargetDirs =
+            listOf(
+                File(homeDir(), skillDir),
+                File(rootDir, skillDir),
+            )
         allTargetDirs.forEach { targetDir ->
             targetDir.mkdirs()
-            tasks.forEach { task ->
-                val source = File(sourceDir, "${task.name}.md").toPath()
-                val link = File(targetDir, "${task.name}.md").toPath()
+            val allSkillFiles = sourceDir.listFiles().orEmpty().filter { it.name.endsWith(".md") }
+            allSkillFiles.forEach { skillFile ->
+                val source = skillFile.toPath()
+                val link = File(targetDir, skillFile.name).toPath()
                 runCatching {
                     // Only remove the file if it is a symlink pointing into our source dir.
                     // This avoids clobbering user-created files that happen to share the same name.
@@ -130,15 +145,141 @@ class SkillGenerator(
     ) {
         val instructions = buildInstructions(tasks, builds)
 
-        val claudeMd = File(rootDir, "CLAUDE.md")
-        writeWithMarkers(claudeMd, instructions)
+        // Clean inactive agent instruction files first
+        Agent.entries
+            .filter { it != defaultAgent }
+            .mapNotNull { it.instructionFile }
+            .forEach { path -> removeMarkersIfExists(File(rootDir, path)) }
 
+        // Always write AGENTS.md (universal fallback)
         val agentsMd = File(rootDir, "AGENTS.md")
         writeWithMarkers(agentsMd, instructions)
 
-        val copilotInstructions = File(rootDir, ".github/copilot-instructions.md")
-        copilotInstructions.parentFile.mkdirs()
-        writeWithMarkers(copilotInstructions, instructions)
+        // Write agent-specific instruction file only if configured
+        val instructionFile = defaultAgent.instructionFile
+        if (instructionFile != null) {
+            val agentFile = File(rootDir, instructionFile)
+            agentFile.parentFile?.mkdirs()
+            writeWithMarkers(agentFile, instructions)
+        }
+    }
+
+    internal fun generateAgentDefinitions() {
+        // Clean inactive agent definitions first
+        Agent.entries
+            .filter { it != defaultAgent }
+            .mapNotNull { it.agentDir }
+            .forEach { path ->
+                val file = File(rootDir, "$path/opsx.md")
+                if (file.exists()) file.delete()
+            }
+
+        val agentDir = defaultAgent.agentDir ?: return
+        val dir = File(rootDir, agentDir)
+        dir.mkdirs()
+        val file = File(dir, "opsx.md")
+        file.writeText(buildAgentDefinition())
+    }
+
+    @Suppress("LongMethod")
+    private fun buildAgentDefinition(): String =
+        buildString {
+            when (defaultAgent) {
+                Agent.CLAUDE -> {
+                    appendLine("---")
+                    appendLine("name: opsx")
+                    appendLine("description: |")
+                    appendLine("  Manages spec-driven development workflows. Use for proposing,")
+                    appendLine("  applying, verifying, and archiving changes via opsx.")
+                    appendLine("model: inherit")
+                    appendLine("color: green")
+                    appendLine("---")
+                    appendLine()
+                }
+                Agent.COPILOT -> {
+                    appendLine("# opsx Agent")
+                    appendLine()
+                }
+                else -> { /* no header for codex/opencode */ }
+            }
+            appendLine("You are the opsx workflow agent. You manage structured changes")
+            appendLine("in this workspace using the opsx, srcx, and wrkx Gradle plugins.")
+            appendLine()
+            appendLine("## How This Workspace Works")
+            appendLine()
+            appendLine("This workspace has three integrated systems:")
+            appendLine()
+            appendLine("1. **opsx** orchestrates changes through a strict lifecycle.")
+            appendLine("   Every code change is a tracked proposal with design, tasks, and verification.")
+            appendLine("2. **srcx** extracts codebase context into `.srcx/context.md`.")
+            appendLine("   This is your primary source of truth about the code structure.")
+            appendLine("3. **wrkx** manages multiple repos as included Gradle builds.")
+            appendLine("   Each build has its own source code and `.srcx/context.md`.")
+            appendLine()
+            appendLine("## Before You Do Anything")
+            appendLine()
+            appendLine("1. Run `/opsx-status` to see active changes and their state")
+            appendLine("2. Read `.srcx/context.md` for the codebase overview")
+            appendLine("3. Read the split context files for details:")
+            appendLine("   - `.srcx/hub-classes.md` — Most-depended-on classes (high blast radius)")
+            appendLine("   - `.srcx/entry-points.md` — App, test, and mock entry points")
+            appendLine("   - `.srcx/interfaces.md` — API boundaries and contracts")
+            appendLine("   - `.srcx/anti-patterns.md` — Detected code issues")
+            appendLine("   - `.srcx/cross-build.md` — How included builds depend on each other")
+            appendLine()
+            appendLine("## Change Lifecycle")
+            appendLine()
+            appendLine("```")
+            appendLine("draft -> active -> in-progress -> completed -> verified -> archived")
+            appendLine("```")
+            appendLine()
+            append("- **Propose**: ")
+            appendLine("`./gradlew -q opsx-propose -P${Opsx.PROP_PROMPT}=\"...\"`")
+            appendLine("  Creates proposal.md, design.md, tasks.md")
+            append("- **Apply**: ")
+            appendLine("`./gradlew -q opsx-apply -P${Opsx.PROP_CHANGE}=\"name\"`")
+            appendLine("  Executes tasks or dispatches agent")
+            append("- **Verify**: ")
+            appendLine("`./gradlew -q opsx-verify -P${Opsx.PROP_CHANGE}=\"name\"`")
+            appendLine("  Runs verification command or agent review")
+            append("- **Archive**: ")
+            appendLine("`./gradlew -q opsx-archive -P${Opsx.PROP_CHANGE}=\"name\"`")
+            appendLine("  Closes the change (must be verified)")
+            appendLine()
+            appendLine("Additional: `/opsx-continue` (resume), `/opsx-explore` (Q&A),")
+            appendLine("`/opsx-feedback` (refine), `/opsx-ff` (fast-forward),")
+            appendLine("`/opsx-onboard` (onboard), `/opsx-status` (show changes).")
+            appendLine()
+            appendLine("## Change Directory Structure")
+            appendLine()
+            appendLine("Each change lives at `opsx/changes/<name>/`:")
+            appendLine()
+            appendLine("- `.opsx.yaml` — Status and metadata")
+            appendLine("- `proposal.md` — Problem statement, scope, constraints")
+            appendLine("- `design.md` — Technical approach, files to change, acceptance criteria")
+            appendLine("- `tasks.md` — Structured tasks: `- [ ] {10-char-id} | Task name`")
+            appendLine()
+            appendLine("## Strict Rules")
+            appendLine()
+            appendLine("- MUST use opsx Gradle tasks for all workflow operations")
+            appendLine("- MUST read `.srcx/context.md` before making changes")
+            appendLine("- MUST run `/opsx-status` before starting any work")
+            appendLine("- MUST NOT use grep/sed/awk for refactoring — use srcx tasks")
+            appendLine("- MUST NOT manually create or edit files in `opsx/changes/`")
+            appendLine("- MUST NOT manually edit files across included builds")
+            appendLine("- MUST NOT bypass the lifecycle — propose first, then apply")
+        }
+
+    private fun removeMarkersIfExists(file: File) {
+        if (!file.exists()) return
+        val marker = "<!-- OPSX:AUTO -->"
+        val endMarker = "<!-- /OPSX:AUTO -->"
+        val content = file.readText()
+        if (!content.contains(marker)) return
+        val before = content.substringBefore(marker).trimEnd()
+        val after = content.substringAfter(endMarker, "").trimStart()
+        val result = "$before\n$after".trim()
+        if (result.isEmpty()) file.delete() else file.writeText("$result\n")
     }
 
     private fun writeWithMarkers(
@@ -170,9 +311,62 @@ class SkillGenerator(
         buildString {
             appendLine("# OPSX Workspace")
             appendLine()
-            appendLine("This is a Gradle workspace managed by OPSX.")
-            appendLine("Use the available slash commands or Gradle tasks.")
+            appendLine("This workspace uses three integrated Gradle plugins:")
             appendLine()
+            appendLine("- **opsx** — Spec-driven development workflow.")
+            appendLine("  Changes go through a lifecycle: propose -> apply -> verify -> archive.")
+            appendLine("  Each change has a proposal, design, and structured task list.")
+            appendLine("  AI agents execute tasks. You MUST use opsx commands for all workflow operations.")
+            appendLine()
+            appendLine("- **srcx** — Source symbol extraction for LLM context.")
+            appendLine("  Generates `.srcx/context.md` with the full codebase map.")
+            appendLine("  Run `/srcx-context` to regenerate it after code changes.")
+            appendLine()
+            appendLine("- **wrkx** — Multi-repo workspace management.")
+            appendLine("  Manages cloning, syncing, and branching across included builds.")
+            appendLine("  Run `/wrkx` to see all available workspace tasks.")
+            appendLine()
+            appendLine("## Understanding the Codebase")
+            appendLine()
+            appendLine("Before making any changes, READ `.srcx/context.md`. It contains:")
+            appendLine()
+            appendLine("- **Hub Classes** (`.srcx/hub-classes.md`) — The most-depended-on")
+            appendLine("  classes in the codebase. Changes here have the highest blast radius.")
+            appendLine("- **Entry Points** (`.srcx/entry-points.md`) — App entry points,")
+            appendLine("  test classes, and mock/fake implementations.")
+            appendLine("- **Interfaces** (`.srcx/interfaces.md`) — API boundaries between")
+            appendLine("  packages. These define the contracts other code depends on.")
+            appendLine("- **Anti-Patterns** (`.srcx/anti-patterns.md`) — Code issues detected")
+            appendLine("  by static analysis: forbidden packages, naming violations, etc.")
+            appendLine("- **Cross-Build** (`.srcx/cross-build.md`) — Dependencies between")
+            appendLine("  included builds. Shows how wrkx, srcx, opsx, etc. relate.")
+            appendLine()
+            appendLine("Each included build also has its own `.srcx/context.md` with the")
+            appendLine("same structure for that build's source code.")
+            appendLine()
+            appendLine("## Change Lifecycle")
+            appendLine()
+            appendLine("Every change goes through these states:")
+            appendLine()
+            appendLine("```")
+            appendLine("draft -> active -> in-progress -> completed -> verified -> archived")
+            appendLine("```")
+            appendLine()
+            appendLine("- **draft** — Proposal created, not yet ready for work")
+            appendLine("- **active** — Ready to be applied")
+            appendLine("- **in-progress** — Agent is implementing the change")
+            appendLine("- **completed** — Implementation done, needs verification")
+            appendLine("- **verified** — Passed verification, ready to archive")
+            appendLine("- **archived** — Done and closed")
+            appendLine()
+            appendLine("Changes live in `opsx/changes/<name>/` with:")
+            appendLine()
+            appendLine("- `.opsx.yaml` — Status, name, dependencies on other changes")
+            appendLine("- `proposal.md` — What and why: problem, scope, constraints")
+            appendLine("- `design.md` — How: approach, files to change, acceptance criteria")
+            appendLine("- `tasks.md` — Atomic task checklist with IDs and dependencies")
+            appendLine()
+            // Command tables
             tasks.groupBy { it.group }.forEach { (group, groupTasks) ->
                 appendLine("## $group")
                 appendLine()
@@ -180,7 +374,8 @@ class SkillGenerator(
                 appendLine("|-------|------------|-------------|")
                 groupTasks.forEach { task ->
                     val usage = TASK_USAGE[task.name]
-                    val example = if (usage != null) "`${usage.example}`" else "`./gradlew -q ${task.name}`"
+                    val example =
+                        if (usage != null) "`${usage.example}`" else "`./gradlew -q ${task.name}`"
                     appendLine("| `/${task.name}` | $example | ${task.description} |")
                 }
                 appendLine()
@@ -206,18 +401,10 @@ class SkillGenerator(
     )
 
     companion object {
-        val TRACKED_GROUPS =
-            setOf("opsx", "srcx", "claude", "copilot", "codex", "opencode", "wrkx")
+        val TRACKED_GROUPS: Set<String> =
+            setOf("opsx", "srcx", "wrkx") + Agent.allIds
 
         const val SKILLS_DIR = ".clkx/skills"
-
-        val AGENT_TARGETS =
-            listOf(
-                ".claude/commands",
-                ".github/prompts",
-                ".codex/prompts",
-                ".opencode/commands",
-            )
 
         val AGENT_TASKS =
             setOf(
@@ -231,18 +418,33 @@ class SkillGenerator(
                 "opsx-ff",
             )
 
-        fun generatedDirs(): List<File> {
+        fun generatedDirs(agent: Agent? = null): List<File> {
             val home = File(System.getProperty("user.home"))
+            val targets =
+                if (agent != null) {
+                    listOf(agent.skillDir)
+                } else {
+                    Agent.allSkillDirs
+                }
             return listOf(File(home, SKILLS_DIR)) +
-                AGENT_TARGETS.map { File(home, it) }
+                targets.map { File(home, it) }
         }
 
-        fun instructionFiles(rootDir: File): List<File> =
-            listOf(
+        fun instructionFiles(
+            rootDir: File,
+            agent: Agent? = null,
+        ): List<File> {
+            if (agent != null) {
+                val files = mutableListOf(File(rootDir, "AGENTS.md"))
+                agent.instructionFile?.let { files.add(File(rootDir, it)) }
+                return files
+            }
+            return listOf(
                 File(rootDir, "CLAUDE.md"),
                 File(rootDir, "AGENTS.md"),
                 File(rootDir, ".github/copilot-instructions.md"),
             )
+        }
 
         @Suppress("MaxLineLength")
         internal val TASK_USAGE =

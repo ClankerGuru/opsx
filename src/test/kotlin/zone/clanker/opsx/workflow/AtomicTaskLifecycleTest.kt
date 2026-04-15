@@ -3,6 +3,7 @@ package zone.clanker.opsx.workflow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import zone.clanker.opsx.model.Agent
 import zone.clanker.opsx.model.ChangeConfig
 import zone.clanker.opsx.model.ChangeStatus
 import zone.clanker.opsx.model.TaskStatus
@@ -79,7 +80,7 @@ class AtomicTaskLifecycleTest :
                 val executor =
                     TaskExecutor(
                         changeDir = changeDir,
-                        agent = "claude",
+                        agent = Agent.CLAUDE,
                         model = "",
                         workDir = rootDir,
                         dispatcher = { _, prompt, _, _, _ ->
@@ -186,7 +187,7 @@ class AtomicTaskLifecycleTest :
                 val executor =
                     TaskExecutor(
                         changeDir = changeDir,
-                        agent = "claude",
+                        agent = Agent.CLAUDE,
                         model = "",
                         workDir = rootDir,
                         dispatcher = { _, prompt, _, _, _ ->

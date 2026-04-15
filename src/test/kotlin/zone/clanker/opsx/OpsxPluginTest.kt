@@ -572,6 +572,7 @@ class OpsxPluginTest :
                 task.taskInfos.set(listOf(TaskInfo("opsx-test-sync-skill", "opsx", "Test sync skill")))
                 task.includedBuildNames.set(emptyList())
                 task.includedBuildDirs.set(emptyList())
+                task.defaultAgent.set("claude")
                 task.run()
 
                 System.setProperty("user.home", origHome)

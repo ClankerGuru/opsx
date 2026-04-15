@@ -5,6 +5,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
+import zone.clanker.opsx.model.Agent
 import zone.clanker.opsx.model.Change
 import zone.clanker.opsx.model.ChangeStatus
 import zone.clanker.opsx.model.OpsxConfig
@@ -59,7 +60,7 @@ abstract class ApplyTask : DefaultTask() {
         val executor =
             TaskExecutor(
                 changeDir = change.dir,
-                agent = agentVal,
+                agent = Agent.fromId(agentVal),
                 model = modelVal,
                 workDir = root,
             )

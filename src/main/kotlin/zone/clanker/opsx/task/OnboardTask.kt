@@ -5,6 +5,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
+import zone.clanker.opsx.model.Agent
 import zone.clanker.opsx.model.OpsxConfig
 import zone.clanker.opsx.workflow.AgentDispatcher
 import zone.clanker.opsx.workflow.PromptBuilder
@@ -42,7 +43,7 @@ abstract class OnboardTask : DefaultTask() {
         val fullPrompt = buildOnboardPrompt(root, context, projectDesc, userPrompt)
 
         logger.quiet("opsx-onboard: asking $agentVal for a guided tour...")
-        val result = AgentDispatcher.dispatch(agentVal, fullPrompt, root, modelVal)
+        val result = AgentDispatcher.dispatch(Agent.fromId(agentVal), fullPrompt, root, modelVal)
         if (result.exitCode != 0) {
             logger.warn("opsx-onboard: agent exited with code ${result.exitCode}")
         }

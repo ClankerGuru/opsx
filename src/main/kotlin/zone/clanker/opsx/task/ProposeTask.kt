@@ -5,6 +5,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
+import zone.clanker.opsx.model.Agent
 import zone.clanker.opsx.model.ChangeStatus
 import zone.clanker.opsx.model.OpsxConfig
 import zone.clanker.opsx.workflow.AgentDispatcher
@@ -83,7 +84,7 @@ abstract class ProposeTask : DefaultTask() {
             writer.writeTasksSkeleton(changeDir, changeName)
 
             logger.quiet("opsx-propose: asking $agentVal to draft proposal for '$changeName'...")
-            val result = AgentDispatcher.dispatch(agentVal, fullPrompt, root, modelVal)
+            val result = AgentDispatcher.dispatch(Agent.fromId(agentVal), fullPrompt, root, modelVal)
             if (result.exitCode != 0) {
                 logger.warn("opsx-propose: agent exited with code ${result.exitCode}")
             }

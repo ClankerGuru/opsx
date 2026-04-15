@@ -6,6 +6,7 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import zone.clanker.opsx.model.Agent
 import java.io.File
 
 class AgentDispatcherTest :
@@ -19,8 +20,8 @@ class AgentDispatcherTest :
 
         given("buildCommand") {
 
-            `when`("agent is claude") {
-                val cmd = AgentDispatcher.buildCommand("claude", promptFile, "")
+            `when`("agent is CLAUDE") {
+                val cmd = AgentDispatcher.buildCommand(Agent.CLAUDE, promptFile, "")
                 then("uses -p flag with skip permissions and prompt") {
                     cmd[0] shouldBe "claude"
                     cmd[1] shouldBe "-p"
@@ -29,16 +30,16 @@ class AgentDispatcherTest :
                 }
             }
 
-            `when`("agent is claude with model") {
-                val cmd = AgentDispatcher.buildCommand("claude", promptFile, "opus")
+            `when`("agent is CLAUDE with model") {
+                val cmd = AgentDispatcher.buildCommand(Agent.CLAUDE, promptFile, "opus")
                 then("includes --model") {
                     cmd shouldContain "--model"
                     cmd shouldContain "opus"
                 }
             }
 
-            `when`("agent is copilot") {
-                val cmd = AgentDispatcher.buildCommand("copilot", promptFile, "")
+            `when`("agent is COPILOT") {
+                val cmd = AgentDispatcher.buildCommand(Agent.COPILOT, promptFile, "")
                 then("uses -p flag and prompt") {
                     cmd[0] shouldBe "copilot"
                     cmd[1] shouldBe "-p"
@@ -46,8 +47,8 @@ class AgentDispatcherTest :
                 }
             }
 
-            `when`("agent is codex") {
-                val cmd = AgentDispatcher.buildCommand("codex", promptFile, "")
+            `when`("agent is CODEX") {
+                val cmd = AgentDispatcher.buildCommand(Agent.CODEX, promptFile, "")
                 then("uses exec subcommand and prompt") {
                     cmd[0] shouldBe "codex"
                     cmd[1] shouldBe "exec"
@@ -55,16 +56,16 @@ class AgentDispatcherTest :
                 }
             }
 
-            `when`("agent is codex with model") {
-                val cmd = AgentDispatcher.buildCommand("codex", promptFile, "o3")
+            `when`("agent is CODEX with model") {
+                val cmd = AgentDispatcher.buildCommand(Agent.CODEX, promptFile, "o3")
                 then("uses -m flag") {
                     cmd shouldContain "-m"
                     cmd shouldContain "o3"
                 }
             }
 
-            `when`("agent is opencode") {
-                val cmd = AgentDispatcher.buildCommand("opencode", promptFile, "")
+            `when`("agent is OPENCODE") {
+                val cmd = AgentDispatcher.buildCommand(Agent.OPENCODE, promptFile, "")
                 then("uses run subcommand and prompt") {
                     cmd[0] shouldBe "opencode"
                     cmd[1] shouldBe "run"
@@ -72,16 +73,16 @@ class AgentDispatcherTest :
                 }
             }
 
-            `when`("agent is unknown") {
+            `when`("unknown agent string is passed to Agent.fromId") {
                 then("throws error") {
                     shouldThrow<IllegalStateException> {
-                        AgentDispatcher.buildCommand("unknown", promptFile, "")
-                    }.message shouldBe "Unknown agent: unknown. Use: claude, copilot, codex, opencode"
+                        Agent.fromId("unknown")
+                    }.message shouldContain "Unknown agent"
                 }
             }
 
             `when`("model is empty") {
-                val cmd = AgentDispatcher.buildCommand("claude", promptFile, "")
+                val cmd = AgentDispatcher.buildCommand(Agent.CLAUDE, promptFile, "")
                 then("does not include --model") {
                     cmd shouldNotContain "--model"
                 }
@@ -89,8 +90,8 @@ class AgentDispatcherTest :
         }
 
         given("buildCommand with model for copilot") {
-            `when`("copilot agent with model specified") {
-                val cmd = AgentDispatcher.buildCommand("copilot", promptFile, "gpt-4")
+            `when`("COPILOT agent with model specified") {
+                val cmd = AgentDispatcher.buildCommand(Agent.COPILOT, promptFile, "gpt-4")
                 then("includes --model flag") {
                     cmd shouldContain "--model"
                     cmd shouldContain "gpt-4"
@@ -99,41 +100,11 @@ class AgentDispatcherTest :
         }
 
         given("buildCommand with model for opencode") {
-            `when`("opencode agent with model specified") {
-                val cmd = AgentDispatcher.buildCommand("opencode", promptFile, "claude-sonnet")
+            `when`("OPENCODE agent with model specified") {
+                val cmd = AgentDispatcher.buildCommand(Agent.OPENCODE, promptFile, "claude-sonnet")
                 then("includes -m flag") {
                     cmd shouldContain "-m"
                     cmd shouldContain "claude-sonnet"
-                }
-            }
-        }
-
-        given("dispatch when agent is unknown") {
-            `when`("agent is not supported by AgentDispatcher") {
-                then("throws IllegalStateException") {
-                    shouldThrow<IllegalStateException> {
-                        AgentDispatcher.dispatch(
-                            agent = "nonexistent-agent-binary-xyz",
-                            prompt = "test prompt",
-                            workDir = File(System.getProperty("user.dir")),
-                            timeoutSeconds = 5L,
-                        )
-                    }
-                }
-            }
-        }
-
-        given("dispatch with unknown agent name") {
-            `when`("agent is not in the supported list") {
-                then("throws immediately without starting a process") {
-                    shouldThrow<IllegalStateException> {
-                        AgentDispatcher.dispatch(
-                            agent = "nonexistent-agent-binary-xyz",
-                            prompt = "test prompt for missing agent",
-                            workDir = File(System.getProperty("java.io.tmpdir")),
-                            timeoutSeconds = 2L,
-                        )
-                    }.message shouldContain "Unknown agent"
                 }
             }
         }

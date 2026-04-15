@@ -1,6 +1,7 @@
 package zone.clanker.opsx.workflow
 
 import org.gradle.api.logging.Logging
+import zone.clanker.opsx.model.Agent
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -19,26 +20,28 @@ import java.util.concurrent.TimeUnit
 object AgentDispatcher {
     private val logger = Logging.getLogger(AgentDispatcher::class.java)
     internal const val DEFAULT_TIMEOUT_SECONDS = 600L
+    private const val READER_JOIN_TIMEOUT_MS = 5000L
+
+    enum class FailureReason { TIMEOUT, DISPATCH_EXCEPTION }
 
     data class Result(
         val exitCode: Int,
         val logFile: File?,
+        val reason: FailureReason? = null,
     )
 
     fun dispatch(
-        agent: String,
+        agent: Agent,
         prompt: String,
         workDir: File,
         model: String = "",
         timeoutSeconds: Long = DEFAULT_TIMEOUT_SECONDS,
     ): Result {
         val promptFile = createPromptFile(prompt)
-        val logFile = createLogFile(agent)
+        val logFile = createLogFile(agent.id)
 
-        logger.quiet("opsx: dispatching to $agent (timeout ${timeoutSeconds}s)")
+        logger.quiet("opsx: dispatching to ${agent.id} (timeout ${timeoutSeconds}s)")
         logger.quiet("opsx: prompt size ${prompt.length} chars")
-        logger.quiet("opsx: log → ${logFile.absolutePath}")
-        logger.quiet("opsx: run `tail -f ${logFile.absolutePath}` to watch progress")
 
         val command = buildCommand(agent, promptFile, model)
         val result =
@@ -46,79 +49,68 @@ object AgentDispatcher {
                 val process =
                     ProcessBuilder(command)
                         .directory(workDir)
-                        .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile))
                         .redirectErrorStream(true)
                         .start()
+                // Stream output to log file and logger in a reader thread
+                val reader =
+                    Thread {
+                        process.inputStream.bufferedReader().useLines { lines ->
+                            lines.forEach { line ->
+                                logFile.appendText(line + "\n")
+                                logger.quiet(line)
+                            }
+                        }
+                    }
+                reader.isDaemon = true
+                reader.start()
                 val completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
                 if (!completed) {
                     process.destroyForcibly()
-                    logger.warn("opsx: $agent timed out after ${timeoutSeconds}s")
-                    return@runCatching Result(-1, logFile)
+                    joinReader(reader, agent)
+                    logger.warn("opsx: ${agent.id} timed out after ${timeoutSeconds}s")
+                    return@runCatching Result(-1, logFile, FailureReason.TIMEOUT)
                 }
+                joinReader(reader, agent)
                 Result(process.exitValue(), logFile)
             }.onFailure { e ->
-                logger.warn("opsx: failed to run $agent: ${e.message}")
-            }.getOrDefault(Result(-1, logFile))
+                logger.warn("opsx: failed to run ${agent.id}: ${e.message}")
+            }.getOrDefault(Result(-1, logFile, FailureReason.DISPATCH_EXCEPTION))
 
         promptFile.delete()
 
         if (result.exitCode == 0) {
-            logger.quiet("opsx: $agent completed successfully")
+            logger.quiet("opsx: ${agent.id} completed successfully")
         } else {
-            logger.warn("opsx: $agent exited with code ${result.exitCode} — log: ${logFile.absolutePath}")
+            logger.warn("opsx: ${agent.id} exited with code ${result.exitCode} — log: ${logFile.absolutePath}")
         }
         return result
     }
 
     internal fun buildCommand(
-        agent: String,
+        agent: Agent,
         promptFile: File,
         model: String = "",
     ): List<String> =
-        when (agent) {
-            "claude" ->
-                buildList {
-                    add("claude")
-                    add("-p")
-                    add("--dangerously-skip-permissions")
-                    if (model.isNotEmpty()) {
-                        add("--model")
-                        add(model)
-                    }
-                    add(promptFile.readText())
-                }
-            "copilot" ->
-                buildList {
-                    add("copilot")
-                    add("-p")
-                    if (model.isNotEmpty()) {
-                        add("--model")
-                        add(model)
-                    }
-                    add(promptFile.readText())
-                }
-            "codex" ->
-                buildList {
-                    add("codex")
-                    add("exec")
-                    if (model.isNotEmpty()) {
-                        add("-m")
-                        add(model)
-                    }
-                    add(promptFile.readText())
-                }
-            "opencode" ->
-                buildList {
-                    add("opencode")
-                    add("run")
-                    if (model.isNotEmpty()) {
-                        add("-m")
-                        add(model)
-                    }
-                    add(promptFile.readText())
-                }
-            else -> error("Unknown agent: $agent. Use: claude, copilot, codex, opencode")
+        buildList {
+            add(agent.cliCommand)
+            addAll(agent.nonInteractiveArgs)
+            if (model.isNotEmpty()) {
+                add(agent.modelFlag)
+                add(model)
+            }
+            add(promptFile.readText())
         }
+
+    private fun joinReader(
+        reader: Thread,
+        agent: Agent,
+    ) {
+        reader.join(READER_JOIN_TIMEOUT_MS)
+        if (reader.isAlive) {
+            logger.warn("opsx: output reader still running for ${agent.id}, interrupting")
+            reader.interrupt()
+        }
+    }
 
     private fun createPromptFile(prompt: String): File {
         val file = File.createTempFile("opsx-prompt-", ".md")
