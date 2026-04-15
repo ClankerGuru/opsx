@@ -47,32 +47,42 @@ class TaskExecutor(
         val ordered = TaskParser.topologicalOrder(target)
         val completed = allTasks.filter { it.status == TaskStatus.DONE }.map { it.id }.toMutableSet()
         val failed = mutableSetOf<String>()
+        val total = ordered.size
 
+        logger.quiet("")
+        logger.quiet("opsx: $total tasks to execute")
+        logger.quiet("─".repeat(SEPARATOR_WIDTH))
+
+        var taskNum = 0
         for (task in ordered) {
+            taskNum++
             if (task.status == TaskStatus.DONE || task.id in completed) {
-                // already done
+                logger.quiet("  [$taskNum/$total] [skip] ${task.id} | ${task.name} (already done)")
             } else if (task.dependencies.any { it in failed }) {
-                logger.quiet("opsx: skipping ${task.id} | ${task.name} — blocked by failed dependency")
+                logger.quiet("  [$taskNum/$total] [blocked] ${task.id} | ${task.name}")
                 TaskParser.updateStatus(tasksFile, task.id, TaskStatus.BLOCKED)
                 ChangeLogger.append(changeDir, task.id, task.name, TaskStatus.BLOCKED, "blocked by failed dependency")
                 failed.add(task.id)
             } else {
-                executeTask(task, completed, failed)
+                logger.quiet("  [$taskNum/$total] [running] ${task.id} | ${task.name}")
+                executeTask(task, completed, failed, taskNum, total)
             }
         }
 
-        val totalTarget = target.size
+        logger.quiet("─".repeat(SEPARATOR_WIDTH))
         val doneCount = completed.size
         val failedCount = failed.size
-        logger.quiet("opsx: execution complete — $doneCount/$totalTarget done, $failedCount failed")
+        logger.quiet("opsx: $doneCount/$total done, $failedCount failed")
     }
 
+    @Suppress("LongParameterList")
     private fun executeTask(
         task: TaskDefinition,
         completed: MutableSet<String>,
         failed: MutableSet<String>,
+        taskNum: Int,
+        total: Int,
     ) {
-        logger.quiet("opsx: executing ${task.id} | ${task.name}")
         TaskParser.updateStatus(tasksFile, task.id, TaskStatus.IN_PROGRESS)
         ChangeLogger.append(changeDir, task.id, task.name, TaskStatus.IN_PROGRESS, "started")
 
@@ -85,7 +95,7 @@ class TaskExecutor(
             TaskParser.updateStatus(tasksFile, task.id, TaskStatus.DONE)
             ChangeLogger.append(changeDir, task.id, task.name, TaskStatus.DONE, "done in ${elapsed}s")
             completed.add(task.id)
-            logger.quiet("opsx: ${task.id} | ${task.name} — done in ${elapsed}s")
+            logger.quiet("  [$taskNum/$total] [done] ${task.id} | ${task.name} (${elapsed}s)")
         } else {
             TaskParser.updateStatus(tasksFile, task.id, TaskStatus.BLOCKED)
             ChangeLogger.append(
@@ -93,10 +103,10 @@ class TaskExecutor(
                 task.id,
                 task.name,
                 TaskStatus.BLOCKED,
-                "failed with exit code ${result.exitCode}",
+                "failed (exit ${result.exitCode})",
             )
             failed.add(task.id)
-            logger.warn("opsx: ${task.id} | ${task.name} — failed with exit code ${result.exitCode}")
+            logger.quiet("  [$taskNum/$total] [FAILED] ${task.id} | ${task.name} (exit ${result.exitCode})")
         }
     }
 
@@ -150,6 +160,7 @@ class TaskExecutor(
 
     companion object {
         private const val MILLIS_PER_SECOND = 1000
+        private const val SEPARATOR_WIDTH = 60
 
         fun resolveExecutionTarget(
             allTasks: List<TaskDefinition>,

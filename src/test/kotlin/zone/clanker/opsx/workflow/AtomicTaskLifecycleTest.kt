@@ -225,7 +225,7 @@ class AtomicTaskLifecycleTest :
 
                 then("log reflects the failure") {
                     val logContent = File(changeDir, "log.md").readText()
-                    logContent shouldContain "failed with exit code 1"
+                    logContent shouldContain "failed (exit 1)"
                     logContent shouldContain "blocked by failed dependency"
                 }
             }

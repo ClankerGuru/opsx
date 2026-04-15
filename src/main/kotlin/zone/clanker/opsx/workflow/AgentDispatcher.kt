@@ -51,13 +51,12 @@ object AgentDispatcher {
                         .directory(workDir)
                         .redirectErrorStream(true)
                         .start()
-                // Stream output to log file and logger in a reader thread
+                // Stream output to log file only — task progress goes through logger
                 val reader =
                     Thread {
                         process.inputStream.bufferedReader().useLines { lines ->
                             lines.forEach { line ->
                                 logFile.appendText(line + "\n")
-                                logger.quiet(line)
                             }
                         }
                     }
