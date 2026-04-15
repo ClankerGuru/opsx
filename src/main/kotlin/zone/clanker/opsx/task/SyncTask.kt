@@ -111,8 +111,8 @@ abstract class SyncTask : DefaultTask() {
         home: File,
         root: File,
     ) {
-        val skillPatterns = "opsx-*\nsrcx-*\nwrkx-*\nwrkx.*\n"
-        val agentPatterns = "opsx.md\n"
+        val skillPatterns = "opsx*\nsrcx*\nwrkx*\n"
+        val agentPatterns = "opsx*\n"
 
         parsedAgents.forEach { agent ->
             // Skill dirs (.claude/commands/, .github/prompts/, etc.)
