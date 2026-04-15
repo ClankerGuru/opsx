@@ -287,7 +287,7 @@ class SkillGeneratorTest :
                 then("contains workspace header") {
                     val content = File(tempDir, "CLAUDE.md").readText()
                     content shouldContain "# OPSX Workspace"
-                    content shouldContain "Gradle workspace managed by OPSX"
+                    content shouldContain "three integrated Gradle plugins"
                 }
 
                 then("groups tasks by group with table") {

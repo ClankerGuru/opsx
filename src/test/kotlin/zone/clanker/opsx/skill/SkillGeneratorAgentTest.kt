@@ -90,12 +90,11 @@ class SkillGeneratorAgentTest :
                     content shouldContain "description: |"
                 }
 
-                then("has system prompt with lifecycle and tasks") {
+                then("has system prompt with lifecycle and rules") {
                     val content = File(tempDir, ".claude/agents/opsx.md").readText()
                     content shouldContain "You are the opsx workflow agent"
                     content shouldContain "## Change Lifecycle"
-                    content shouldContain "## Available Tasks"
-                    content shouldContain "## Rules"
+                    content shouldContain "## Strict Rules"
                 }
             }
         }
@@ -127,8 +126,7 @@ class SkillGeneratorAgentTest :
                     val content = File(tempDir, ".github/agents/opsx.md").readText()
                     content shouldContain "You are the opsx workflow agent"
                     content shouldContain "## Change Lifecycle"
-                    content shouldContain "## Available Tasks"
-                    content shouldContain "## Rules"
+                    content shouldContain "## Strict Rules"
                 }
             }
         }
