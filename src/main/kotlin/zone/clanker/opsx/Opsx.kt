@@ -239,6 +239,7 @@ data object Opsx {
                 it.taskInfos.set(snapshotTaskInfos)
                 it.includedBuildNames.set(snapshotBuildNames)
                 it.includedBuildDirs.set(snapshotBuildDirs)
+                it.defaultAgent.set(extension.defaultAgent)
             }
 
             rootProject.tasks.register(TASK_CLEAN, zone.clanker.opsx.task.CleanTask::class.java) {

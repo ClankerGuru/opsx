@@ -8,10 +8,16 @@ class SkillGenerator(
     private val rootDir: File,
     private val tasks: List<TaskInfo>,
     private val buildNames: List<String>,
+    private val defaultAgent: String,
 ) {
+    private fun activeTarget(): AgentTarget =
+        AGENT_CONFIG[defaultAgent]
+            ?: error("Unknown agent '$defaultAgent'. Valid agents: ${AGENT_CONFIG.keys.joinToString()}")
+
     fun generate(): List<File> {
         val sourceDir = generateSkillFiles(tasks, buildNames)
         generateInstructionFiles(tasks, buildNames)
+        generateAgentDefinitions()
 
         return listOf(sourceDir)
     }
@@ -28,14 +34,13 @@ class SkillGenerator(
             File(sourceDir, "${task.name}.md").writeText(buildCommandFile(task, builds))
         }
 
-        // Symlink from each agent's expected location (home + project)
+        // Symlink from the active agent's expected location (home + project)
+        val skillDir = activeTarget().skillDir
         val allTargetDirs =
-            AGENT_TARGETS.flatMap { target ->
-                listOf(
-                    File(homeDir(), target),
-                    File(rootDir, target),
-                )
-            }
+            listOf(
+                File(homeDir(), skillDir),
+                File(rootDir, skillDir),
+            )
         allTargetDirs.forEach { targetDir ->
             targetDir.mkdirs()
             tasks.forEach { task ->
@@ -130,16 +135,97 @@ class SkillGenerator(
     ) {
         val instructions = buildInstructions(tasks, builds)
 
-        val claudeMd = File(rootDir, "CLAUDE.md")
-        writeWithMarkers(claudeMd, instructions)
-
+        // Always write AGENTS.md (universal fallback)
         val agentsMd = File(rootDir, "AGENTS.md")
         writeWithMarkers(agentsMd, instructions)
 
-        val copilotInstructions = File(rootDir, ".github/copilot-instructions.md")
-        copilotInstructions.parentFile.mkdirs()
-        writeWithMarkers(copilotInstructions, instructions)
+        // Write agent-specific instruction file only if configured
+        val instructionFile = activeTarget().instructionFile
+        if (instructionFile != null) {
+            val agentFile = File(rootDir, instructionFile)
+            agentFile.parentFile?.mkdirs()
+            writeWithMarkers(agentFile, instructions)
+        }
     }
+
+    internal fun generateAgentDefinitions() {
+        val agentDir = activeTarget().agentDir ?: return
+        val dir = File(rootDir, agentDir)
+        dir.mkdirs()
+        val file = File(dir, "opsx.md")
+        file.writeText(buildAgentDefinition())
+    }
+
+    @Suppress("LongMethod")
+    private fun buildAgentDefinition(): String =
+        buildString {
+            when (defaultAgent) {
+                "claude" -> {
+                    appendLine("---")
+                    appendLine("name: opsx")
+                    appendLine("description: |")
+                    appendLine("  Use this agent when the user wants to propose, apply, verify, or manage")
+                    appendLine("  changes using the opsx spec-driven development workflow.")
+                    appendLine("model: inherit")
+                    appendLine("color: green")
+                    appendLine("---")
+                    appendLine()
+                }
+                "copilot" -> {
+                    appendLine("# opsx Agent")
+                    appendLine()
+                    appendLine("Use this agent when the user wants to propose, apply, verify, or manage")
+                    appendLine("changes using the opsx spec-driven development workflow.")
+                    appendLine()
+                }
+            }
+            appendLine("You are the opsx workflow agent for this workspace.")
+            appendLine()
+            appendLine("## Change Lifecycle")
+            appendLine()
+            appendLine("All changes follow a strict lifecycle:")
+            append("1. **Propose** — ")
+            append("`./gradlew -q opsx-propose -P${Opsx.PROP_PROMPT}=\"description\"`")
+            appendLine(" creates a change with proposal.md, design.md, and tasks.md.")
+            append("2. **Apply** — ")
+            append("`./gradlew -q opsx-apply -P${Opsx.PROP_CHANGE}=\"change-name\"`")
+            appendLine(" sends the proposal + design to the agent for implementation.")
+            append("3. **Verify** — ")
+            append("`./gradlew -q opsx-verify -P${Opsx.PROP_CHANGE}=\"change-name\"`")
+            appendLine(" reviews the implementation against the design.")
+            append("4. **Archive** — ")
+            append("`./gradlew -q opsx-archive -P${Opsx.PROP_CHANGE}=\"change-name\"`")
+            appendLine(" archives a completed change.")
+            appendLine()
+            appendLine("## Available Tasks")
+            appendLine()
+            appendLine("| Task | Description |")
+            appendLine("|------|-------------|")
+            appendLine("| `opsx-propose` | Propose a new change |")
+            appendLine("| `opsx-apply` | Apply a change to the codebase |")
+            appendLine("| `opsx-verify` | Verify a change was applied correctly |")
+            appendLine("| `opsx-archive` | Archive a completed change |")
+            appendLine("| `opsx-continue` | Continue work on an in-progress change |")
+            appendLine("| `opsx-explore` | Explore the codebase (read-only) |")
+            appendLine("| `opsx-feedback` | Provide feedback on a change |")
+            appendLine("| `opsx-onboard` | Onboard a new contributor |")
+            appendLine("| `opsx-ff` | Fast-forward a change to the latest state |")
+            appendLine("| `opsx-bulk-archive` | Archive all completed changes |")
+            appendLine("| `opsx-status` | Show all changes and their status |")
+            appendLine("| `opsx-list` | List all changes |")
+            appendLine("| `opsx-sync` | Generate agent skills and instruction files |")
+            appendLine("| `opsx-clean` | Remove all generated skill files and symlinks |")
+            appendLine()
+            appendLine("## Rules")
+            appendLine()
+            appendLine("- **All workflow operations MUST use opsx Gradle tasks.** Never modify change files manually.")
+            appendLine("- Do NOT manually create or edit files in the `opsx/changes/` directory.")
+            appendLine("- Do NOT manually edit `tasks.md`, `proposal.md`, or `design.md` inside change directories")
+            appendLine("  unless the user explicitly asks you to.")
+            appendLine("- Use `opsx-status` to check current change state before starting work.")
+            appendLine("- Always check `.srcx/context.md` for codebase context before making changes.")
+            appendLine("- Do NOT use grep/sed/awk for refactoring. Use srcx tasks.")
+        }
 
     private fun writeWithMarkers(
         file: File,
@@ -193,10 +279,18 @@ class SkillGenerator(
             }
             appendLine("## Rules")
             appendLine()
+            appendLine(
+                "- **All workflow operations MUST use opsx Gradle tasks.** Use `opsx-propose` to propose changes,",
+            )
+            appendLine("  `opsx-apply` to implement, `opsx-verify` to validate, `opsx-archive` to complete.")
             appendLine("- Do NOT use grep/sed/awk for refactoring. Use srcx tasks.")
+            append("- Do NOT manually create or edit files in the `opsx/changes/` directory.")
+            appendLine(" Use the opsx Gradle tasks.")
+            appendLine("- Do NOT manually edit `tasks.md`, `proposal.md`, or `design.md` inside change directories")
+            appendLine("  unless the user explicitly asks you to.")
             appendLine("- Do NOT manually edit files across included builds. Use the Gradle tasks.")
-            appendLine("- Always check `.srcx/context.md` for codebase context.")
-            appendLine("- Changes are proposed via `/opsx-propose` or `./gradlew -q opsx-propose`.")
+            appendLine("- Always check `.srcx/context.md` for codebase context before making changes.")
+            appendLine("- Use `opsx-status` to check current change state before starting work.")
         }
 
     data class TaskUsage(
@@ -211,13 +305,21 @@ class SkillGenerator(
 
         const val SKILLS_DIR = ".clkx/skills"
 
-        val AGENT_TARGETS =
-            listOf(
-                ".claude/commands",
-                ".github/prompts",
-                ".codex/prompts",
-                ".opencode/commands",
+        data class AgentTarget(
+            val skillDir: String,
+            val instructionFile: String?,
+            val agentDir: String?,
+        )
+
+        val AGENT_CONFIG =
+            mapOf(
+                "claude" to AgentTarget(".claude/commands", "CLAUDE.md", ".claude/agents"),
+                "copilot" to AgentTarget(".github/prompts", ".github/copilot-instructions.md", ".github/agents"),
+                "codex" to AgentTarget(".codex/prompts", null, null),
+                "opencode" to AgentTarget(".opencode/commands", null, null),
             )
+
+        val AGENT_TARGETS = AGENT_CONFIG.values.map { it.skillDir }
 
         val AGENT_TASKS =
             setOf(
@@ -231,18 +333,35 @@ class SkillGenerator(
                 "opsx-ff",
             )
 
-        fun generatedDirs(): List<File> {
+        fun generatedDirs(agent: String? = null): List<File> {
             val home = File(System.getProperty("user.home"))
+            val targets =
+                if (agent != null) {
+                    val config = AGENT_CONFIG[agent] ?: error("Unknown agent: $agent")
+                    listOf(config.skillDir)
+                } else {
+                    AGENT_TARGETS
+                }
             return listOf(File(home, SKILLS_DIR)) +
-                AGENT_TARGETS.map { File(home, it) }
+                targets.map { File(home, it) }
         }
 
-        fun instructionFiles(rootDir: File): List<File> =
-            listOf(
+        fun instructionFiles(
+            rootDir: File,
+            agent: String? = null,
+        ): List<File> {
+            if (agent != null) {
+                val config = AGENT_CONFIG[agent] ?: error("Unknown agent: $agent")
+                val files = mutableListOf(File(rootDir, "AGENTS.md"))
+                config.instructionFile?.let { files.add(File(rootDir, it)) }
+                return files
+            }
+            return listOf(
                 File(rootDir, "CLAUDE.md"),
                 File(rootDir, "AGENTS.md"),
                 File(rootDir, ".github/copilot-instructions.md"),
             )
+        }
 
         @Suppress("MaxLineLength")
         internal val TASK_USAGE =

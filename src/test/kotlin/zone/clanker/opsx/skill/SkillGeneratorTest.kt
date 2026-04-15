@@ -9,6 +9,8 @@ import org.gradle.testfixtures.ProjectBuilder
 import java.io.File
 import java.nio.file.Files
 
+private const val DEFAULT_AGENT = "claude"
+
 class SkillGeneratorTest :
     BehaviorSpec({
         given("SkillGenerator with tracked tasks") {
@@ -19,7 +21,7 @@ class SkillGeneratorTest :
                         TaskInfo("opsx-list", "opsx", "List all changes"),
                     )
 
-                val generator = SkillGenerator(project.projectDir, tasks, emptyList())
+                val generator = SkillGenerator(project.projectDir, tasks, emptyList(), DEFAULT_AGENT)
 
                 then("generator has only tracked group tasks") {
                     val content = generator.buildCommandFile(tasks.first(), emptyList())
@@ -29,7 +31,7 @@ class SkillGeneratorTest :
 
             `when`("initialized with empty task list") {
                 val project = ProjectBuilder.builder().build()
-                val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
+                val generator = SkillGenerator(project.projectDir, emptyList(), emptyList(), DEFAULT_AGENT)
 
                 then("still generates instruction files") {
                     val result = generator.generate()
@@ -40,7 +42,7 @@ class SkillGeneratorTest :
 
         given("SkillGenerator.buildCommandFile") {
             val project = ProjectBuilder.builder().build()
-            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
+            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList(), DEFAULT_AGENT)
             val task = TaskInfo("opsx-sync", "opsx", "Generate slash commands for all agents")
 
             `when`("building command file content") {
@@ -91,7 +93,7 @@ class SkillGeneratorTest :
                         TaskInfo("opsx-list", "opsx", "List changes"),
                         TaskInfo("opsx-sync", "opsx", "Sync skills"),
                     )
-                val generator = SkillGenerator(tempDir, tasks, emptyList())
+                val generator = SkillGenerator(tempDir, tasks, emptyList(), DEFAULT_AGENT)
 
                 generator.generateSkillFiles(tasks, emptyList())
                 System.setProperty("user.home", origHome)
@@ -111,35 +113,23 @@ class SkillGeneratorTest :
                     content shouldContain "List changes"
                 }
 
-                then("creates symlinks for claude") {
+                then("creates symlinks only for the active agent") {
                     val path = File(tempDir, ".claude/commands/opsx-list.md").toPath()
                     Files.exists(path) shouldBe true
                     Files.isSymbolicLink(path) shouldBe true
                 }
 
-                then("creates symlinks for copilot") {
-                    val path = File(tempDir, ".github/prompts/opsx-list.md").toPath()
-                    Files.exists(path) shouldBe true
-                    Files.isSymbolicLink(path) shouldBe true
-                }
-
-                then("creates symlinks for codex") {
-                    val path = File(tempDir, ".codex/prompts/opsx-list.md").toPath()
-                    Files.exists(path) shouldBe true
-                    Files.isSymbolicLink(path) shouldBe true
-                }
-
-                then("creates symlinks for opencode") {
-                    val path = File(tempDir, ".opencode/commands/opsx-list.md").toPath()
-                    Files.exists(path) shouldBe true
-                    Files.isSymbolicLink(path) shouldBe true
+                then("does not create symlinks for inactive agents") {
+                    File(tempDir, ".github/prompts/opsx-list.md").exists() shouldBe false
+                    File(tempDir, ".codex/prompts/opsx-list.md").exists() shouldBe false
+                    File(tempDir, ".opencode/commands/opsx-list.md").exists() shouldBe false
                 }
             }
         }
 
         given("SkillGenerator.buildCommandFile for agent-dispatching task") {
             val project = ProjectBuilder.builder().build()
-            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
+            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList(), DEFAULT_AGENT)
             val task = TaskInfo("opsx-onboard", "opsx", "Onboard a new contributor")
 
             `when`("task is in AGENT_TASKS") {
@@ -154,7 +144,7 @@ class SkillGeneratorTest :
 
         given("SkillGenerator.buildCommandFile for non-agent task") {
             val project = ProjectBuilder.builder().build()
-            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
+            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList(), DEFAULT_AGENT)
             val task = TaskInfo("opsx-status", "opsx", "Show all changes and their status")
 
             `when`("task is not in AGENT_TASKS") {
@@ -168,7 +158,7 @@ class SkillGeneratorTest :
 
         given("SkillGenerator.buildCommandFile with empty description") {
             val project = ProjectBuilder.builder().build()
-            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
+            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList(), DEFAULT_AGENT)
             val task = TaskInfo("my-task", "opsx", "")
 
             `when`("description is empty") {
@@ -199,16 +189,16 @@ class SkillGeneratorTest :
                         .build()
 
                 val tasks = listOf(TaskInfo("opsx-test-task", "opsx", "A test task"))
-                val generator = SkillGenerator(tempDir, tasks, emptyList())
+                val generator = SkillGenerator(tempDir, tasks, emptyList(), DEFAULT_AGENT)
                 generator.generate()
 
                 System.setProperty("user.home", origHome)
 
-                then("generates files for all agents") {
+                then("generates files only for the active agent") {
                     File(tempDir, ".claude/commands/opsx-test-task.md").exists() shouldBe true
-                    File(tempDir, ".github/prompts/opsx-test-task.md").exists() shouldBe true
-                    File(tempDir, ".opencode/commands/opsx-test-task.md").exists() shouldBe true
-                    File(tempDir, ".codex/prompts/opsx-test-task.md").exists() shouldBe true
+                    File(tempDir, ".github/prompts/opsx-test-task.md").exists() shouldBe false
+                    File(tempDir, ".opencode/commands/opsx-test-task.md").exists() shouldBe false
+                    File(tempDir, ".codex/prompts/opsx-test-task.md").exists() shouldBe false
                 }
             }
         }
@@ -255,7 +245,7 @@ class SkillGeneratorTest :
                         TaskInfo("opsx-list", "opsx", "List changes"),
                         TaskInfo("opsx-sync", "opsx", "Sync skills"),
                     )
-                val generator = SkillGenerator(tempDir, tasks, emptyList())
+                val generator = SkillGenerator(tempDir, tasks, emptyList(), DEFAULT_AGENT)
 
                 generator.generateInstructionFiles(tasks, emptyList())
 
@@ -340,7 +330,7 @@ class SkillGeneratorTest :
                         .build()
 
                 val tasks = listOf(TaskInfo("opsx-status", "opsx", "Show status"))
-                val generator = SkillGenerator(tempDir, tasks, emptyList())
+                val generator = SkillGenerator(tempDir, tasks, emptyList(), DEFAULT_AGENT)
 
                 generator.generateInstructionFiles(tasks, emptyList())
 
@@ -383,7 +373,7 @@ class SkillGeneratorTest :
                         .build()
 
                 val tasks = listOf(TaskInfo("opsx-propose", "opsx", "Propose a change"))
-                val generator = SkillGenerator(tempDir, tasks, emptyList())
+                val generator = SkillGenerator(tempDir, tasks, emptyList(), DEFAULT_AGENT)
 
                 generator.generateInstructionFiles(tasks, emptyList())
 
@@ -424,7 +414,7 @@ class SkillGeneratorTest :
 
                 val tasks = listOf(TaskInfo("opsx-list", "opsx", "List changes"))
                 // Use empty build names (will be empty in test)
-                val generator = SkillGenerator(tempDir, tasks, emptyList())
+                val generator = SkillGenerator(tempDir, tasks, emptyList(), DEFAULT_AGENT)
                 generator.generateInstructionFiles(tasks, emptyList())
 
                 then("generates without included builds section when empty") {
@@ -453,7 +443,7 @@ class SkillGeneratorTest :
                         .build()
 
                 val tasks = listOf(TaskInfo("opsx-test-instr", "opsx", "Test instruction generation"))
-                val generator = SkillGenerator(tempDir, tasks, emptyList())
+                val generator = SkillGenerator(tempDir, tasks, emptyList(), DEFAULT_AGENT)
                 generator.generate()
 
                 System.setProperty("user.home", origHome)
@@ -476,7 +466,7 @@ class SkillGeneratorTest :
 
         given("SkillGenerator.buildCommandFile with included builds") {
             val project = ProjectBuilder.builder().build()
-            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
+            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList(), DEFAULT_AGENT)
             val task = TaskInfo("opsx-list", "opsx", "List changes")
 
             `when`("builds collection is not empty") {
@@ -491,7 +481,7 @@ class SkillGeneratorTest :
 
         given("SkillGenerator.buildCommandFile for task with TASK_USAGE flags") {
             val project = ProjectBuilder.builder().build()
-            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList())
+            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList(), DEFAULT_AGENT)
 
             `when`("task is opsx-propose which has flags and notes") {
                 val task = TaskInfo("opsx-propose", "opsx", "Propose a new change")
@@ -509,34 +499,6 @@ class SkillGeneratorTest :
                 then("contains Notes section") {
                     content shouldContain "## Notes"
                     content shouldContain "Creates a new change directory"
-                }
-            }
-        }
-
-        given("SkillGenerator companion helpers") {
-            `when`("getting generatedDirs") {
-                val dirs = SkillGenerator.generatedDirs()
-                val home = System.getProperty("user.home")
-
-                then("returns source dir and all agent directories") {
-                    dirs.size shouldBe 5
-                    dirs.map { it.path } shouldContain File(home, ".clkx/skills").path
-                    dirs.map { it.path } shouldContain File(home, ".claude/commands").path
-                    dirs.map { it.path } shouldContain File(home, ".github/prompts").path
-                    dirs.map { it.path } shouldContain File(home, ".codex/prompts").path
-                    dirs.map { it.path } shouldContain File(home, ".opencode/commands").path
-                }
-            }
-
-            `when`("getting instructionFiles") {
-                val rootDir = File("/fake/root")
-                val files = SkillGenerator.instructionFiles(rootDir)
-
-                then("returns all instruction files") {
-                    files.size shouldBe 3
-                    files.map { it.name } shouldContain "CLAUDE.md"
-                    files.map { it.name } shouldContain "AGENTS.md"
-                    files.map { it.name } shouldContain "copilot-instructions.md"
                 }
             }
         }

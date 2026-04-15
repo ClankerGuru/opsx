@@ -26,14 +26,19 @@ abstract class SyncTask : DefaultTask() {
     @get:Internal
     abstract val includedBuildDirs: ListProperty<File>
 
+    @get:Internal
+    abstract val defaultAgent: Property<String>
+
     @TaskAction
     fun run() {
         val root = rootDir.get()
+        val agent = defaultAgent.get()
         val generator =
             SkillGenerator(
                 rootDir = root,
                 tasks = taskInfos.get(),
                 buildNames = includedBuildNames.get(),
+                defaultAgent = agent,
             )
         val home = File(System.getProperty("user.home"))
         val sourceDir = File(home, SkillGenerator.SKILLS_DIR)
@@ -44,9 +49,11 @@ abstract class SyncTask : DefaultTask() {
             mdFiles.filter { it.name.endsWith(".md") }.forEach { it.delete() }
         }
 
-        // Clean only symlinks pointing to our source dir from agent dirs
-        SkillGenerator.AGENT_TARGETS.forEach { target ->
-            val dir = File(home, target)
+        // Clean only symlinks pointing to our source dir from the active agent's dir
+        val activeSkillDir =
+            SkillGenerator.AGENT_CONFIG[agent]?.skillDir
+                ?: error("Unknown agent '$agent'. Valid agents: ${SkillGenerator.AGENT_CONFIG.keys.joinToString()}")
+        listOf(File(home, activeSkillDir), File(root, activeSkillDir)).forEach { dir ->
             if (dir.exists()) {
                 val links = dir.listFiles().orEmpty()
                 links.filter { isOpsxSymlink(it, sourceDir) }.forEach { it.delete() }
@@ -59,16 +66,14 @@ abstract class SyncTask : DefaultTask() {
         writeGitignore(sourceDir, "*\n")
 
         // Agent target dirs may have user files — only ignore opsx-* skills
-        SkillGenerator.AGENT_TARGETS.forEach { target ->
-            val dir = File(home, target)
+        listOf(File(home, activeSkillDir), File(root, activeSkillDir)).forEach { dir ->
             if (dir.exists()) {
                 ensureOpsxIgnorePattern(dir)
             }
         }
 
         val fileCount = sourceDir.listFiles()?.count { it.name.endsWith(".md") } ?: 0
-        val agentCount = SkillGenerator.AGENT_TARGETS.size
-        logger.quiet("opsx-sync: $fileCount skills in ~/.clkx/skills/, symlinked to $agentCount agents")
+        logger.quiet("opsx-sync: $fileCount skills in ~/.clkx/skills/, symlinked to $agent")
     }
 
     private fun writeGitignore(
