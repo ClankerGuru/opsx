@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit
 object AgentDispatcher {
     private val logger = Logging.getLogger(AgentDispatcher::class.java)
     internal const val DEFAULT_TIMEOUT_SECONDS = 600L
+    private const val READER_JOIN_TIMEOUT_MS = 5000L
 
     data class Result(
         val exitCode: Int,
@@ -37,8 +38,6 @@ object AgentDispatcher {
 
         logger.quiet("opsx: dispatching to $agent (timeout ${timeoutSeconds}s)")
         logger.quiet("opsx: prompt size ${prompt.length} chars")
-        logger.quiet("opsx: log → ${logFile.absolutePath}")
-        logger.quiet("opsx: run `tail -f ${logFile.absolutePath}` to watch progress")
 
         val command = buildCommand(agent, promptFile, model)
         val result =
@@ -46,15 +45,28 @@ object AgentDispatcher {
                 val process =
                     ProcessBuilder(command)
                         .directory(workDir)
-                        .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile))
                         .redirectErrorStream(true)
                         .start()
+                // Stream output to log file and logger in a reader thread
+                val reader =
+                    Thread {
+                        process.inputStream.bufferedReader().useLines { lines ->
+                            lines.forEach { line ->
+                                logFile.appendText(line + "\n")
+                                logger.quiet(line)
+                            }
+                        }
+                    }
+                reader.isDaemon = true
+                reader.start()
                 val completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
                 if (!completed) {
                     process.destroyForcibly()
+                    reader.join(READER_JOIN_TIMEOUT_MS)
                     logger.warn("opsx: $agent timed out after ${timeoutSeconds}s")
                     return@runCatching Result(-1, logFile)
                 }
+                reader.join(READER_JOIN_TIMEOUT_MS)
                 Result(process.exitValue(), logFile)
             }.onFailure { e ->
                 logger.warn("opsx: failed to run $agent: ${e.message}")
