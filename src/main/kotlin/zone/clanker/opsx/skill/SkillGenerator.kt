@@ -56,7 +56,8 @@ class SkillGenerator(
                 val allSkillFiles = sourceDir.listFiles().orEmpty().filter { it.name.endsWith(".md") }
                 allSkillFiles.forEach { skillFile ->
                     val source = skillFile.toPath()
-                    val link = File(targetDir, skillFile.name).toPath()
+                    val linkName = skillFile.nameWithoutExtension + agent.skillExtension
+                    val link = File(targetDir, linkName).toPath()
                     runCatching {
                         // Only remove the file if it is a symlink pointing into our source dir.
                         // This avoids clobbering user-created files that happen to share the same name.
