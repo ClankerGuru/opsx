@@ -197,7 +197,12 @@ class SkillGenerator(
                     appendLine()
                 }
                 Agent.COPILOT -> {
-                    appendLine("# opsx Agent")
+                    appendLine("---")
+                    appendLine("name: opsx")
+                    appendLine("description: |")
+                    appendLine("  Manages spec-driven development workflows. Use for proposing,")
+                    appendLine("  applying, verifying, and archiving changes via opsx.")
+                    appendLine("---")
                     appendLine()
                 }
                 else -> { /* no header for codex/opencode */ }

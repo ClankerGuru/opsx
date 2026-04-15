@@ -4,7 +4,6 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import io.kotest.matchers.string.shouldNotContain
 import zone.clanker.opsx.model.Agent
 import java.io.File
 
@@ -116,11 +115,11 @@ class SkillGeneratorAgentTest :
                     File(tempDir, ".github/agents/opsx.md").exists() shouldBe true
                 }
 
-                then("has copilot heading instead of YAML frontmatter") {
+                then("has YAML frontmatter for copilot") {
                     val content = File(tempDir, ".github/agents/opsx.md").readText()
-                    content shouldContain "# opsx Agent"
-                    content.startsWith("---") shouldBe false
-                    content shouldNotContain "name: opsx"
+                    content.startsWith("---") shouldBe true
+                    content shouldContain "name: opsx"
+                    content shouldContain "description: |"
                 }
 
                 then("has system prompt with lifecycle and tasks") {
