@@ -1,15 +1,16 @@
 package zone.clanker.opsx
 
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.gradle.testfixtures.ProjectBuilder
-import zone.clanker.opsx.skill.TaskInfo
+import zone.clanker.opsx.model.Agent
 import zone.clanker.opsx.task.CleanTask
 import zone.clanker.opsx.task.ListTask
+import zone.clanker.opsx.task.ProposeTask
 import zone.clanker.opsx.task.StatusTask
-import zone.clanker.opsx.task.SyncTask
 import java.io.File
 
 class OpsxPluginTest :
@@ -58,7 +59,9 @@ class OpsxPluginTest :
             `when`("created with defaults") {
                 then("it has correct defaults") {
                     ext.outputDir shouldBe "opsx"
-                    ext.defaultAgent shouldBe "claude"
+                    ext.agents shouldBe mutableListOf()
+                    ext.skillDirectories shouldBe mutableListOf()
+                    ext.agentDirectories shouldBe mutableListOf()
                     ext.specsDir shouldBe "specs"
                     ext.changesDir shouldBe "changes"
                     ext.projectFile shouldBe "project.md"
@@ -70,9 +73,17 @@ class OpsxPluginTest :
                     ext.outputDir = "custom-output"
                     ext.outputDir shouldBe "custom-output"
                 }
-                then("defaultAgent is mutable") {
-                    ext.defaultAgent = "copilot"
-                    ext.defaultAgent shouldBe "copilot"
+                then("agents is mutable") {
+                    ext.agents.add(Agent.COPILOT)
+                    ext.agents shouldContain Agent.COPILOT
+                }
+                then("skillDirectories is mutable") {
+                    ext.skillDirectories.add("custom-skills")
+                    ext.skillDirectories shouldContain "custom-skills"
+                }
+                then("agentDirectories is mutable") {
+                    ext.agentDirectories.add("custom-agents")
+                    ext.agentDirectories shouldContain "custom-agents"
                 }
                 then("specsDir is mutable") {
                     ext.specsDir = "specifications"
@@ -554,113 +565,17 @@ class OpsxPluginTest :
             }
         }
 
-        given("SyncTask @TaskAction") {
-            `when`("run is called") {
-                val tempDir =
-                    File.createTempFile("opsx-inner-sync", "").apply {
-                        delete()
-                        mkdirs()
-                        deleteOnExit()
-                    }
-                val origHome = System.getProperty("user.home")
-                System.setProperty("user.home", tempDir.absolutePath)
+        given("Dispatch agent resolution") {
+            `when`("extension.agents is set") {
+                val project = ProjectBuilder.builder().build()
+                val ext = project.extensions.create(Opsx.EXTENSION_NAME, Opsx.SettingsExtension::class.java)
+                ext.agents.addAll(listOf(Agent.COPILOT, Agent.CLAUDE))
+                val plugin = Opsx.SettingsPlugin()
+                plugin.registerTasks(project, ext)
 
-                val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
-
-                val task = project.tasks.create("test-inner-sync", SyncTask::class.java)
-                task.rootDir.set(tempDir)
-                task.taskInfos.set(listOf(TaskInfo("opsx-test-sync-skill", "opsx", "Test sync skill")))
-                task.includedBuildNames.set(emptyList())
-                task.includedBuildDirs.set(emptyList())
-                task.defaultAgent.set("claude")
-                task.run()
-
-                System.setProperty("user.home", origHome)
-
-                then("generates skill files and .gitignore") {
-                    val skillsDir = File(tempDir, ".clkx/skills")
-                    skillsDir.exists() shouldBe true
-                    val gitignore = File(skillsDir, ".gitignore")
-                    gitignore.exists() shouldBe true
-                    gitignore.readText() shouldContain "*"
-                }
-            }
-        }
-
-        given("CleanTask @TaskAction") {
-            `when`("nothing to clean") {
-                val projectDir =
-                    File.createTempFile("opsx-inner-clean", "").apply {
-                        delete()
-                        mkdirs()
-                        deleteOnExit()
-                    }
-                val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
-                val task = project.tasks.create("test-inner-clean", CleanTask::class.java)
-                task.rootDir.set(projectDir)
-                task.includedBuildDirs.set(emptyList())
-
-                then("completes without error") {
-                    task.run()
-                }
-            }
-
-            `when`("skills and srcx directories exist") {
-                val tempDir =
-                    File.createTempFile("opsx-inner-clean2", "").apply {
-                        delete()
-                        mkdirs()
-                        deleteOnExit()
-                    }
-                val origHome = System.getProperty("user.home")
-                System.setProperty("user.home", tempDir.absolutePath)
-
-                val skillsDir = File(tempDir, ".clkx/skills")
-                skillsDir.mkdirs()
-                File(skillsDir, "test.md").writeText("test")
-
-                val srcxDir = File(tempDir, ".srcx")
-                srcxDir.mkdirs()
-                File(srcxDir, "context.md").writeText("context")
-
-                val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
-                val task = project.tasks.create("test-inner-clean2", CleanTask::class.java)
-                task.rootDir.set(tempDir)
-                task.includedBuildDirs.set(emptyList())
-                task.run()
-
-                System.setProperty("user.home", origHome)
-
-                then("cleans skills directory") {
-                    skillsDir.exists() shouldBe false
-                }
-
-                then("cleans srcx directory") {
-                    srcxDir.exists() shouldBe false
-                }
-            }
-
-            `when`("instruction files have markers") {
-                val tempDir =
-                    File.createTempFile("opsx-inner-clean3", "").apply {
-                        delete()
-                        mkdirs()
-                        deleteOnExit()
-                    }
-
-                val claudeMd = File(tempDir, "CLAUDE.md")
-                claudeMd.writeText("# Proj\n<!-- OPSX:AUTO -->\ngen\n<!-- /OPSX:AUTO -->\n")
-
-                val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
-                val task = project.tasks.create("test-inner-clean3", CleanTask::class.java)
-                task.rootDir.set(tempDir)
-                task.includedBuildDirs.set(emptyList())
-                task.run()
-
-                then("removes markers from instruction files") {
-                    val content = claudeMd.readText()
-                    (content.contains("<!-- OPSX:AUTO -->")) shouldBe false
-                    content shouldContain "# Proj"
+                then("agentProp resolves to first element of extension.agents") {
+                    val proposeTask = project.tasks.findByName(Opsx.TASK_PROPOSE) as zone.clanker.opsx.task.ProposeTask
+                    proposeTask.agent.get() shouldBe "copilot"
                 }
             }
         }

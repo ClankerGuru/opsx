@@ -28,51 +28,95 @@ abstract class SyncTask : DefaultTask() {
     abstract val includedBuildDirs: ListProperty<File>
 
     @get:Internal
-    abstract val defaultAgent: Property<String>
+    abstract val agents: ListProperty<String>
+
+    @get:Internal
+    abstract val skillDirectories: ListProperty<String>
+
+    @get:Internal
+    abstract val agentDirectories: ListProperty<String>
 
     @TaskAction
     fun run() {
         val root = rootDir.get()
-        val agent = Agent.fromId(defaultAgent.get())
-        val generator =
-            SkillGenerator(
-                rootDir = root,
-                tasks = taskInfos.get(),
-                buildNames = includedBuildNames.get(),
-                defaultAgent = agent,
-            )
+        val agentIds = agents.get()
+        if (agentIds.isEmpty()) {
+            logger.warn("opsx-sync: no agents configured, skipping")
+            return
+        }
+        val parsedAgents = agentIds.map { Agent.fromId(it) }
         val home = File(System.getProperty("user.home"))
         val sourceDir = File(home, SkillGenerator.SKILLS_DIR)
 
-        // Clean source dir (we own everything here)
+        cleanSourceDir(sourceDir)
+        cleanAgentSymlinks(parsedAgents, home, root, sourceDir)
+
+        buildGenerator(root, parsedAgents).generate()
+
+        writeGitignore(sourceDir, "*\n")
+        writeAgentIgnorePatterns(parsedAgents, home, root)
+
+        val fileCount = sourceDir.listFiles()?.count { it.name.endsWith(".md") } ?: 0
+        val agentSummary = parsedAgents.joinToString { it.id }
+        logger.quiet("opsx-sync: $fileCount skills, agents: [$agentSummary]")
+    }
+
+    private fun buildGenerator(
+        root: File,
+        parsedAgents: List<Agent>,
+    ): SkillGenerator {
+        val resolvedSkillDirs = skillDirectories.get().map { File(root, it) }
+        val resolvedAgentDirs = agentDirectories.get().map { File(root, it) }
+        return SkillGenerator(
+            rootDir = root,
+            tasks = taskInfos.get(),
+            buildNames = includedBuildNames.get(),
+            agents = parsedAgents,
+            additionalSourceDirs = resolvedSkillDirs,
+            additionalAgentDirs = resolvedAgentDirs,
+        )
+    }
+
+    private fun cleanSourceDir(sourceDir: File) {
         if (sourceDir.exists()) {
             val mdFiles = sourceDir.listFiles().orEmpty()
             mdFiles.filter { it.name.endsWith(".md") }.forEach { it.delete() }
         }
+    }
 
-        // Clean only symlinks pointing to our source dir from the active agent's dir
-        val activeSkillDir = agent.skillDir
-        listOf(File(home, activeSkillDir), File(root, activeSkillDir)).forEach { dir ->
-            if (dir.exists()) {
-                val links = dir.listFiles().orEmpty()
-                links.filter { isOpsxSymlink(it, sourceDir) }.forEach { it.delete() }
+    private fun cleanAgentSymlinks(
+        @Suppress("UNUSED_PARAMETER") parsedAgents: List<Agent>,
+        home: File,
+        root: File,
+        sourceDir: File,
+    ) {
+        // Clean ALL agent dirs, not just configured ones — removes stale symlinks from removed agents
+        val dirs =
+            Agent.entries
+                .flatMap { agent ->
+                    listOf(File(home, agent.skillDir), File(root, agent.skillDir))
+                }.distinct()
+        dirs.filter { it.exists() }.forEach { dir ->
+            dir
+                .listFiles()
+                .orEmpty()
+                .filter { isOpsxSymlink(it, sourceDir) }
+                .forEach { it.delete() }
+        }
+    }
+
+    private fun writeAgentIgnorePatterns(
+        parsedAgents: List<Agent>,
+        home: File,
+        root: File,
+    ) {
+        parsedAgents.forEach { agent ->
+            listOf(File(home, agent.skillDir), File(root, agent.skillDir)).forEach { dir ->
+                if (dir.exists()) {
+                    ensureOpsxIgnorePattern(dir)
+                }
             }
         }
-
-        generator.generate()
-
-        // .clkx/skills/ is entirely ours — ignore everything
-        writeGitignore(sourceDir, "*\n")
-
-        // Agent target dirs may have user files — only ignore opsx-* skills
-        listOf(File(home, activeSkillDir), File(root, activeSkillDir)).forEach { dir ->
-            if (dir.exists()) {
-                ensureOpsxIgnorePattern(dir)
-            }
-        }
-
-        val fileCount = sourceDir.listFiles()?.count { it.name.endsWith(".md") } ?: 0
-        logger.quiet("opsx-sync: $fileCount skills in ~/.clkx/skills/, symlinked to ${agent.id}")
     }
 
     private fun writeGitignore(
