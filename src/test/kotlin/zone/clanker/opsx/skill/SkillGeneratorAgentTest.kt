@@ -6,11 +6,12 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import zone.clanker.opsx.model.Agent
 import java.io.File
+import java.nio.file.Files
 
 class SkillGeneratorAgentTest :
     BehaviorSpec({
         given("SkillGenerator.generateInstructionFiles with agent that has no instructionFile") {
-            `when`("defaultAgent is codex (instructionFile = null)") {
+            `when`("agents is listOf(CODEX) (instructionFile = null)") {
                 val tempDir =
                     File.createTempFile("opsx-instr-codex", "").also {
                         it.delete()
@@ -19,7 +20,7 @@ class SkillGeneratorAgentTest :
                 tempDir.deleteOnExit()
 
                 val tasks = listOf(TaskInfo("opsx-list", "opsx", "List changes"))
-                val generator = SkillGenerator(tempDir, tasks, emptyList(), Agent.CODEX)
+                val generator = SkillGenerator(tempDir, tasks, emptyList(), listOf(Agent.CODEX))
 
                 generator.generateInstructionFiles(tasks, emptyList())
 
@@ -38,7 +39,7 @@ class SkillGeneratorAgentTest :
         }
 
         given("SkillGenerator.generateInstructionFiles with copilot agent") {
-            `when`("defaultAgent is copilot") {
+            `when`("agents is listOf(COPILOT)") {
                 val tempDir =
                     File.createTempFile("opsx-instr-copilot", "").also {
                         it.delete()
@@ -47,7 +48,7 @@ class SkillGeneratorAgentTest :
                 tempDir.deleteOnExit()
 
                 val tasks = listOf(TaskInfo("opsx-list", "opsx", "List changes"))
-                val generator = SkillGenerator(tempDir, tasks, emptyList(), Agent.COPILOT)
+                val generator = SkillGenerator(tempDir, tasks, emptyList(), listOf(Agent.COPILOT))
 
                 generator.generateInstructionFiles(tasks, emptyList())
 
@@ -66,7 +67,7 @@ class SkillGeneratorAgentTest :
         }
 
         given("SkillGenerator.generateAgentDefinitions for claude") {
-            `when`("defaultAgent is claude") {
+            `when`("agents is listOf(CLAUDE)") {
                 val tempDir =
                     File.createTempFile("opsx-agent-claude", "").also {
                         it.delete()
@@ -74,7 +75,7 @@ class SkillGeneratorAgentTest :
                     }
                 tempDir.deleteOnExit()
 
-                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), Agent.CLAUDE)
+                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), listOf(Agent.CLAUDE))
                 generator.generateAgentDefinitions()
 
                 then("creates .claude/agents/opsx.md") {
@@ -100,7 +101,7 @@ class SkillGeneratorAgentTest :
         }
 
         given("SkillGenerator.generateAgentDefinitions for copilot") {
-            `when`("defaultAgent is copilot") {
+            `when`("agents is listOf(COPILOT)") {
                 val tempDir =
                     File.createTempFile("opsx-agent-copilot", "").also {
                         it.delete()
@@ -108,7 +109,7 @@ class SkillGeneratorAgentTest :
                     }
                 tempDir.deleteOnExit()
 
-                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), Agent.COPILOT)
+                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), listOf(Agent.COPILOT))
                 generator.generateAgentDefinitions()
 
                 then("creates .github/agents/opsx.md") {
@@ -128,11 +129,15 @@ class SkillGeneratorAgentTest :
                     content shouldContain "## Change Lifecycle"
                     content shouldContain "## Strict Rules"
                 }
+
+                then("cleans claude agent definition") {
+                    File(tempDir, ".claude/agents/opsx.md").exists() shouldBe false
+                }
             }
         }
 
         given("SkillGenerator.generateAgentDefinitions for codex") {
-            `when`("defaultAgent is codex (agentDir = null)") {
+            `when`("agents is listOf(CODEX) (agentDir = null)") {
                 val tempDir =
                     File.createTempFile("opsx-agent-codex", "").also {
                         it.delete()
@@ -140,7 +145,7 @@ class SkillGeneratorAgentTest :
                     }
                 tempDir.deleteOnExit()
 
-                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), Agent.CODEX)
+                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), listOf(Agent.CODEX))
                 generator.generateAgentDefinitions()
 
                 then("does not create any agent definition file") {
@@ -151,7 +156,7 @@ class SkillGeneratorAgentTest :
         }
 
         given("SkillGenerator.generateAgentDefinitions for opencode") {
-            `when`("defaultAgent is opencode (agentDir = null)") {
+            `when`("agents is listOf(OPENCODE) (agentDir = null)") {
                 val tempDir =
                     File.createTempFile("opsx-agent-opencode", "").also {
                         it.delete()
@@ -159,12 +164,123 @@ class SkillGeneratorAgentTest :
                     }
                 tempDir.deleteOnExit()
 
-                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), Agent.OPENCODE)
+                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), listOf(Agent.OPENCODE))
                 generator.generateAgentDefinitions()
 
                 then("does not create any agent definition file") {
                     File(tempDir, ".claude/agents/opsx.md").exists() shouldBe false
                     File(tempDir, ".github/agents/opsx.md").exists() shouldBe false
+                }
+            }
+        }
+
+        given("SkillGenerator.generateAgentDefinitions for multiple agents") {
+            `when`("agents is listOf(CLAUDE, COPILOT)") {
+                val tempDir =
+                    File.createTempFile("opsx-agent-multi", "").also {
+                        it.delete()
+                        it.mkdirs()
+                    }
+                tempDir.deleteOnExit()
+
+                val generator =
+                    SkillGenerator(tempDir, emptyList(), emptyList(), listOf(Agent.CLAUDE, Agent.COPILOT))
+                generator.generateAgentDefinitions()
+
+                then("creates .claude/agents/opsx.md") {
+                    File(tempDir, ".claude/agents/opsx.md").exists() shouldBe true
+                }
+
+                then("creates .github/agents/opsx.md") {
+                    File(tempDir, ".github/agents/opsx.md").exists() shouldBe true
+                }
+
+                then("claude definition has correct frontmatter") {
+                    val content = File(tempDir, ".claude/agents/opsx.md").readText()
+                    content shouldContain "---"
+                    content shouldContain "name: opsx"
+                    content shouldContain "model: inherit"
+                    content shouldContain "color: green"
+                }
+
+                then("copilot definition has correct frontmatter") {
+                    val content = File(tempDir, ".github/agents/opsx.md").readText()
+                    content.startsWith("---") shouldBe true
+                    content shouldContain "name: opsx"
+                    content shouldContain "description: |"
+                }
+
+                then("both definitions have system prompt") {
+                    val claudeContent = File(tempDir, ".claude/agents/opsx.md").readText()
+                    val copilotContent = File(tempDir, ".github/agents/opsx.md").readText()
+                    claudeContent shouldContain "You are the opsx workflow agent"
+                    copilotContent shouldContain "You are the opsx workflow agent"
+                }
+            }
+        }
+
+        given("SkillGenerator.generate with multi-agent list") {
+            `when`("agents is listOf(CLAUDE, COPILOT)") {
+                val tempDir =
+                    File.createTempFile("opsx-multi-agent-full", "").also {
+                        it.delete()
+                        it.mkdirs()
+                    }
+                tempDir.deleteOnExit()
+
+                val origHome = System.getProperty("user.home")
+                System.setProperty("user.home", tempDir.absolutePath)
+
+                val tasks = listOf(TaskInfo("opsx-list", "opsx", "List changes"))
+                val generator =
+                    SkillGenerator(tempDir, tasks, emptyList(), listOf(Agent.CLAUDE, Agent.COPILOT))
+                generator.generate()
+
+                System.setProperty("user.home", origHome)
+
+                then("creates symlinks in .claude/commands/") {
+                    val path = File(tempDir, ".claude/commands/opsx-list.md").toPath()
+                    Files.exists(path) shouldBe true
+                    Files.isSymbolicLink(path) shouldBe true
+                }
+
+                then("creates symlinks in .github/prompts/") {
+                    val path = File(tempDir, ".github/prompts/opsx-list.md").toPath()
+                    Files.exists(path) shouldBe true
+                    Files.isSymbolicLink(path) shouldBe true
+                }
+
+                then("writes CLAUDE.md instruction file") {
+                    val file = File(tempDir, "CLAUDE.md")
+                    file.exists() shouldBe true
+                    file.readText() shouldContain "<!-- OPSX:AUTO -->"
+                    file.readText() shouldContain "opsx-list"
+                }
+
+                then("writes copilot-instructions.md instruction file") {
+                    val file = File(tempDir, ".github/copilot-instructions.md")
+                    file.exists() shouldBe true
+                    file.readText() shouldContain "<!-- OPSX:AUTO -->"
+                    file.readText() shouldContain "opsx-list"
+                }
+
+                then("writes AGENTS.md") {
+                    val file = File(tempDir, "AGENTS.md")
+                    file.exists() shouldBe true
+                    file.readText() shouldContain "<!-- OPSX:AUTO -->"
+                }
+
+                then("creates .claude/agents/opsx.md") {
+                    File(tempDir, ".claude/agents/opsx.md").exists() shouldBe true
+                }
+
+                then("creates .github/agents/opsx.md") {
+                    File(tempDir, ".github/agents/opsx.md").exists() shouldBe true
+                }
+
+                then("does not create symlinks for inactive agents") {
+                    File(tempDir, ".codex/prompts/opsx-list.md").exists() shouldBe false
+                    File(tempDir, ".opencode/commands/opsx-list.md").exists() shouldBe false
                 }
             }
         }

@@ -56,7 +56,9 @@ data object Opsx {
 
     open class SettingsExtension {
         var outputDir: String = OUTPUT_DIR
-        var defaultAgent: String = "claude"
+        var agents: MutableList<String> = mutableListOf()
+        var skillDirectories: MutableList<String> = mutableListOf()
+        var agentDirectories: MutableList<String> = mutableListOf()
         var specsDir: String = "specs"
         var changesDir: String = "changes"
         var projectFile: String = "project.md"
@@ -101,7 +103,11 @@ data object Opsx {
             val agentProp =
                 rootProject.providers
                     .gradleProperty(PROP_AGENT)
-                    .orElse(rootProject.provider { extension.defaultAgent })
+                    .orElse(
+                        rootProject.provider {
+                            extension.agents.firstOrNull() ?: ""
+                        },
+                    )
             val modelProp = rootProject.providers.gradleProperty(PROP_MODEL).orElse("")
 
             registerPrimaryWorkflowTasks(rootProject, config, agentProp, modelProp)
@@ -239,7 +245,9 @@ data object Opsx {
                 it.taskInfos.set(snapshotTaskInfos)
                 it.includedBuildNames.set(snapshotBuildNames)
                 it.includedBuildDirs.set(snapshotBuildDirs)
-                it.defaultAgent.set(extension.defaultAgent)
+                it.agents.set(extension.agents)
+                it.skillDirectories.set(extension.skillDirectories)
+                it.agentDirectories.set(extension.agentDirectories)
             }
 
             rootProject.tasks.register(TASK_CLEAN, zone.clanker.opsx.task.CleanTask::class.java) {

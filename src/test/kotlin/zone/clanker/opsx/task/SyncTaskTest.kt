@@ -120,6 +120,9 @@ class SyncTaskTest :
                 task.taskInfos.set(emptyList())
                 task.includedBuildNames.set(emptyList())
                 task.includedBuildDirs.set(emptyList())
+                task.agents.set(emptyList())
+                task.skillDirectories.set(emptyList())
+                task.agentDirectories.set(emptyList())
 
                 val writeMethod =
                     SyncTask::class.java.getDeclaredMethod(
@@ -206,6 +209,7 @@ class SyncTaskTest :
             task.taskInfos.set(emptyList())
             task.includedBuildNames.set(emptyList())
             task.includedBuildDirs.set(emptyList())
+            task.agents.set(emptyList())
             return method.invoke(task, file, sourceDir) as Boolean
         }
     }
