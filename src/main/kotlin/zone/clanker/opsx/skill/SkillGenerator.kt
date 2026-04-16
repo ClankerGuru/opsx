@@ -105,6 +105,7 @@ class SkillGenerator(
         }
     }
 
+    @Suppress("LongMethod")
     internal fun buildCommandFile(
         task: TaskInfo,
         builds: List<String>,
@@ -114,7 +115,6 @@ class SkillGenerator(
             val usage = TASK_USAGE[task.name]
             val whenToUse = SKILL_TRIGGERS[task.name]
 
-            // YAML frontmatter (agentskills.io spec)
             appendLine("---")
             appendLine("name: ${task.name}")
             append("description: ")
