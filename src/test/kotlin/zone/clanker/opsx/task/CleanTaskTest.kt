@@ -30,7 +30,7 @@ class CleanTaskTest :
                 }
             }
 
-            `when`("skills directory exists with md files") {
+            `when`("skills directory exists with skill subdirs") {
                 val tempDir =
                     File.createTempFile("opsx-clean-skills", "").apply {
                         delete()
@@ -42,8 +42,10 @@ class CleanTaskTest :
 
                 val skillsDir = File(tempDir, SkillGenerator.SKILLS_DIR)
                 skillsDir.mkdirs()
-                File(skillsDir, "opsx-list.md").writeText("# opsx-list")
-                File(skillsDir, "opsx-sync.md").writeText("# opsx-sync")
+                File(skillsDir, "opsx-list").mkdirs()
+                File(skillsDir, "opsx-list/SKILL.md").writeText("# opsx-list")
+                File(skillsDir, "opsx-sync").mkdirs()
+                File(skillsDir, "opsx-sync/SKILL.md").writeText("# opsx-sync")
 
                 val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
                 val task = project.tasks.create("test-clean-skills", CleanTask::class.java)
@@ -58,7 +60,7 @@ class CleanTaskTest :
                 }
             }
 
-            `when`("agent target directories have symlinks pointing to source dir") {
+            `when`("agent target directories have directory symlinks pointing to source dir") {
                 val tempDir =
                     File.createTempFile("opsx-clean-symlinks", "").apply {
                         delete()
@@ -70,17 +72,27 @@ class CleanTaskTest :
 
                 val skillsDir = File(tempDir, SkillGenerator.SKILLS_DIR)
                 skillsDir.mkdirs()
-                val sourceFile = File(skillsDir, "opsx-test.md")
-                sourceFile.writeText("# opsx-test")
+                val sourceSkillDir = File(skillsDir, "opsx-test")
+                sourceSkillDir.mkdirs()
+                File(sourceSkillDir, "SKILL.md").writeText("# opsx-test")
 
-                val claudeDir = File(tempDir, ".claude/commands")
+                val claudeDir = File(tempDir, ".claude/skills")
                 claudeDir.mkdirs()
                 Files.createSymbolicLink(
-                    File(claudeDir, "opsx-test.md").toPath(),
-                    sourceFile.toPath(),
+                    File(claudeDir, "opsx-test").toPath(),
+                    sourceSkillDir.toPath(),
                 )
-                // Also create a user-owned file that should survive
-                File(claudeDir, "my-custom.md").writeText("# custom")
+                // Also create a user-owned dir that should survive
+                File(claudeDir, "my-custom").mkdirs()
+                File(claudeDir, "my-custom/SKILL.md").writeText("# custom")
+
+                // Also create symlink in shared .agents/skills/
+                val sharedDir = File(tempDir, ".agents/skills")
+                sharedDir.mkdirs()
+                Files.createSymbolicLink(
+                    File(sharedDir, "opsx-test").toPath(),
+                    sourceSkillDir.toPath(),
+                )
 
                 val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
                 val task = project.tasks.create("test-clean-links", CleanTask::class.java)
@@ -90,16 +102,20 @@ class CleanTaskTest :
 
                 System.setProperty("user.home", origHome)
 
-                then("removes symlinks from agent dirs") {
-                    File(claudeDir, "opsx-test.md").exists() shouldBe false
+                then("removes directory symlinks from agent dirs") {
+                    Files.exists(File(claudeDir, "opsx-test").toPath()) shouldBe false
                 }
 
-                then("preserves non-symlink files in agent dirs") {
-                    File(claudeDir, "my-custom.md").exists() shouldBe true
+                then("removes directory symlinks from shared skills dir") {
+                    Files.exists(File(sharedDir, "opsx-test").toPath()) shouldBe false
+                }
+
+                then("preserves non-symlink dirs in agent dirs") {
+                    File(claudeDir, "my-custom/SKILL.md").exists() shouldBe true
                 }
             }
 
-            `when`("broken symlinks exist in agent dirs") {
+            `when`("broken directory symlinks exist in agent dirs") {
                 val tempDir =
                     File.createTempFile("opsx-clean-broken", "").apply {
                         delete()
@@ -109,11 +125,11 @@ class CleanTaskTest :
                 val origHome = System.getProperty("user.home")
                 System.setProperty("user.home", tempDir.absolutePath)
 
-                val claudeDir = File(tempDir, ".claude/commands")
+                val claudeDir = File(tempDir, ".claude/skills")
                 claudeDir.mkdirs()
-                val nonexistentTarget = File(tempDir, "nonexistent/target.md")
+                val nonexistentTarget = File(tempDir, "nonexistent/target-skill")
                 Files.createSymbolicLink(
-                    File(claudeDir, "broken-link.md").toPath(),
+                    File(claudeDir, "broken-link").toPath(),
                     nonexistentTarget.toPath(),
                 )
 
@@ -125,10 +141,50 @@ class CleanTaskTest :
 
                 System.setProperty("user.home", origHome)
 
-                then("removes broken symlinks") {
-                    File(claudeDir, "broken-link.md").exists() shouldBe false
+                then("removes broken directory symlinks") {
                     // Even the symlink itself should be gone
-                    Files.exists(File(claudeDir, "broken-link.md").toPath()) shouldBe false
+                    Files.exists(File(claudeDir, "broken-link").toPath()) shouldBe false
+                }
+            }
+
+            `when`("agent definitions exist at project and home level") {
+                val tempDir =
+                    File.createTempFile("opsx-clean-agentdefs", "").apply {
+                        delete()
+                        mkdirs()
+                        deleteOnExit()
+                    }
+                val origHome = System.getProperty("user.home")
+                System.setProperty("user.home", tempDir.absolutePath)
+
+                // Create ~/.clkx/agents/opsx.md (source of truth)
+                val agentsDir = File(tempDir, SkillGenerator.AGENTS_DIR)
+                agentsDir.mkdirs()
+                val agentSource = File(agentsDir, "opsx.md")
+                agentSource.writeText("# opsx agent")
+
+                // Create project-level symlink .claude/agents/opsx.md -> ~/.clkx/agents/opsx.md
+                val claudeAgentsDir = File(tempDir, ".claude/agents")
+                claudeAgentsDir.mkdirs()
+                Files.createSymbolicLink(
+                    File(claudeAgentsDir, "opsx.md").toPath(),
+                    agentSource.toPath(),
+                )
+
+                val project = ProjectBuilder.builder().withProjectDir(tempDir).build()
+                val task = project.tasks.create("test-clean-agentdefs", CleanTask::class.java)
+                task.rootDir.set(tempDir)
+                task.includedBuildDirs.set(emptyList())
+                task.run()
+
+                System.setProperty("user.home", origHome)
+
+                then("deletes ~/.clkx/agents/ directory") {
+                    agentsDir.exists() shouldBe false
+                }
+
+                then("removes project-level agent definition symlink") {
+                    Files.exists(File(claudeAgentsDir, "opsx.md").toPath()) shouldBe false
                 }
             }
 

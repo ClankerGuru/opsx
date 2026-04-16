@@ -46,14 +46,14 @@ class AgentTest :
             }
         }
 
-        given("Agent.allSkillDirs") {
+        given("Agent.allSkillsDirs") {
             then("returns all four skill directories") {
-                Agent.allSkillDirs shouldContainExactlyInAnyOrder
+                Agent.allSkillsDirs shouldContainExactlyInAnyOrder
                     listOf(
-                        ".claude/commands",
-                        ".github/prompts",
-                        ".codex/prompts",
-                        ".opencode/commands",
+                        ".claude/skills",
+                        ".github/skills",
+                        ".codex/skills",
+                        ".opencode/skills",
                     )
             }
         }
@@ -70,9 +70,16 @@ class AgentTest :
                     Agent.CLAUDE.cliCommand shouldBe "claude"
                     Agent.CLAUDE.nonInteractiveArgs shouldBe listOf("-p", "--dangerously-skip-permissions")
                     Agent.CLAUDE.modelFlag shouldBe "--model"
-                    Agent.CLAUDE.skillDir shouldBe ".claude/commands"
+                    Agent.CLAUDE.skillsDir shouldBe ".claude/skills"
                     Agent.CLAUDE.instructionFile shouldBe "CLAUDE.md"
                     Agent.CLAUDE.agentDir shouldBe ".claude/agents"
+                    Agent.CLAUDE.usesCopy shouldBe false
+                }
+            }
+
+            `when`("agent is COPILOT") {
+                then("usesCopy is true") {
+                    Agent.COPILOT.usesCopy shouldBe true
                 }
             }
 

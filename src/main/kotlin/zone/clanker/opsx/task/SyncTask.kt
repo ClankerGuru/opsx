@@ -49,12 +49,14 @@ abstract class SyncTask : DefaultTask() {
         val sourceDir = File(home, SkillGenerator.SKILLS_DIR)
 
         cleanSourceDir(sourceDir)
-        cleanAgentSymlinks(parsedAgents, home, root, sourceDir)
+        cleanAgentSymlinks(root, sourceDir)
 
         buildGenerator(root, parsedAgents).generate()
 
-        writeOpsxGitignore(sourceDir, "*\n")
-        writeAgentIgnorePatterns(parsedAgents, home, root)
+        val clkxDir = sourceDir.parentFile
+        clkxDir.mkdirs()
+        writeOpsxGitignore(clkxDir, "*\n")
+        writeAgentIgnorePatterns(parsedAgents, root)
 
         val fileCount = sourceDir.listFiles()?.count { it.name.endsWith(".md") } ?: 0
         val agentSummary = parsedAgents.joinToString { it.id }
@@ -79,23 +81,19 @@ abstract class SyncTask : DefaultTask() {
 
     private fun cleanSourceDir(sourceDir: File) {
         if (sourceDir.exists()) {
-            val mdFiles = sourceDir.listFiles().orEmpty()
-            mdFiles.filter { it.name.endsWith(".md") }.forEach { it.delete() }
+            sourceDir.listFiles().orEmpty().forEach { it.deleteRecursively() }
         }
     }
 
     private fun cleanAgentSymlinks(
-        @Suppress("UNUSED_PARAMETER") parsedAgents: List<Agent>,
-        home: File,
         root: File,
         sourceDir: File,
     ) {
         // Clean ALL agent dirs, not just configured ones — removes stale symlinks from removed agents
         val dirs =
-            Agent.entries
-                .flatMap { agent ->
-                    listOf(File(home, agent.skillDir), File(root, agent.skillDir))
-                }.distinct()
+            (Agent.allSkillsDirs + SkillGenerator.SHARED_SKILLS_DIR)
+                .map { File(root, it) }
+                .distinct()
         dirs.filter { it.exists() }.forEach { dir ->
             dir
                 .listFiles()
@@ -105,20 +103,21 @@ abstract class SyncTask : DefaultTask() {
         }
     }
 
-    @Suppress("UNUSED_PARAMETER")
     private fun writeAgentIgnorePatterns(
         parsedAgents: List<Agent>,
-        home: File,
         root: File,
     ) {
         val skillPatterns = "opsx*\nsrcx*\nwrkx*\n"
         val agentPatterns = "opsx*\n"
 
+        // Shared skills dir (.agents/skills/)
+        val sharedDir = File(root, SkillGenerator.SHARED_SKILLS_DIR)
+        if (sharedDir.exists()) writeOpsxGitignore(sharedDir, skillPatterns)
+
         parsedAgents.forEach { agent ->
-            // Skill dirs (.claude/commands/, .github/prompts/, etc.)
-            listOf(File(root, agent.skillDir)).forEach { dir ->
-                if (dir.exists()) writeOpsxGitignore(dir, skillPatterns)
-            }
+            // Skill dirs (.claude/skills/, .github/skills/, etc.)
+            val skillDir = File(root, agent.skillsDir)
+            if (skillDir.exists()) writeOpsxGitignore(skillDir, skillPatterns)
             // Agent dirs (.claude/agents/, .github/agents/)
             val agentDir = agent.agentDir
             if (agentDir != null) {

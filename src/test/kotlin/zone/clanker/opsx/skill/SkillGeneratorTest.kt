@@ -102,26 +102,27 @@ class SkillGeneratorTest :
                 }
 
                 then("writes skill files to source") {
-                    File(tempDir, ".clkx/skills/opsx-list.md").exists() shouldBe true
-                    File(tempDir, ".clkx/skills/opsx-sync.md").exists() shouldBe true
+                    File(tempDir, ".clkx/skills/opsx-list/SKILL.md").exists() shouldBe true
+                    File(tempDir, ".clkx/skills/opsx-sync/SKILL.md").exists() shouldBe true
                 }
 
                 then("skill files have correct content") {
-                    val content = File(tempDir, ".clkx/skills/opsx-list.md").readText()
+                    val content = File(tempDir, ".clkx/skills/opsx-list/SKILL.md").readText()
                     content shouldContain "# opsx-list"
                     content shouldContain "List changes"
                 }
 
                 then("creates symlinks only for the active agent") {
-                    val path = File(tempDir, ".claude/commands/opsx-list.md").toPath()
+                    val path = File(tempDir, ".claude/skills/opsx-list").toPath()
                     Files.exists(path) shouldBe true
                     Files.isSymbolicLink(path) shouldBe true
+                    Files.isDirectory(path) shouldBe true
                 }
 
                 then("does not create symlinks for inactive agents") {
-                    File(tempDir, ".github/prompts/opsx-list.md").exists() shouldBe false
-                    File(tempDir, ".codex/prompts/opsx-list.md").exists() shouldBe false
-                    File(tempDir, ".opencode/commands/opsx-list.md").exists() shouldBe false
+                    File(tempDir, ".github/skills/opsx-list").exists() shouldBe false
+                    File(tempDir, ".codex/skills/opsx-list").exists() shouldBe false
+                    File(tempDir, ".opencode/skills/opsx-list").exists() shouldBe false
                 }
             }
         }
@@ -194,10 +195,10 @@ class SkillGeneratorTest :
                 System.setProperty("user.home", origHome)
 
                 then("generates files only for the active agent") {
-                    File(tempDir, ".claude/commands/opsx-test-task.md").exists() shouldBe true
-                    File(tempDir, ".github/prompts/opsx-test-task.md").exists() shouldBe false
-                    File(tempDir, ".opencode/commands/opsx-test-task.md").exists() shouldBe false
-                    File(tempDir, ".codex/prompts/opsx-test-task.md").exists() shouldBe false
+                    File(tempDir, ".claude/skills/opsx-test-task").exists() shouldBe true
+                    File(tempDir, ".github/skills/opsx-test-task").exists() shouldBe false
+                    File(tempDir, ".opencode/skills/opsx-test-task").exists() shouldBe false
+                    File(tempDir, ".codex/skills/opsx-test-task").exists() shouldBe false
                 }
             }
         }
@@ -521,14 +522,14 @@ class SkillGeneratorTest :
 
                 then("creates source directory with skill files") {
                     File(tempDir, ".clkx/skills").exists() shouldBe true
-                    File(tempDir, ".clkx/skills/opsx-list.md").exists() shouldBe true
+                    File(tempDir, ".clkx/skills/opsx-list/SKILL.md").exists() shouldBe true
                 }
 
                 then("creates no symlinks for any agent") {
-                    File(tempDir, ".claude/commands/opsx-list.md").exists() shouldBe false
-                    File(tempDir, ".github/prompts/opsx-list.md").exists() shouldBe false
-                    File(tempDir, ".codex/prompts/opsx-list.md").exists() shouldBe false
-                    File(tempDir, ".opencode/commands/opsx-list.md").exists() shouldBe false
+                    File(tempDir, ".claude/skills/opsx-list").exists() shouldBe false
+                    File(tempDir, ".github/skills/opsx-list").exists() shouldBe false
+                    File(tempDir, ".codex/skills/opsx-list").exists() shouldBe false
+                    File(tempDir, ".opencode/skills/opsx-list").exists() shouldBe false
                 }
 
                 then("writes AGENTS.md") {
@@ -550,7 +551,7 @@ class SkillGeneratorTest :
         }
 
         given("SkillGenerator with additionalSourceDirs") {
-            `when`("additional source dir has extra .md files") {
+            `when`("additional source dir has extra skill directories") {
                 val tempDir =
                     File.createTempFile("opsx-gen-extra", "").also {
                         it.delete()
@@ -562,7 +563,8 @@ class SkillGeneratorTest :
                 System.setProperty("user.home", tempDir.absolutePath)
 
                 val extraDir = File(tempDir, "extra-skills").also { it.mkdirs() }
-                File(extraDir, "custom-skill.md").writeText("# custom-skill\n\nA custom skill.")
+                val customSkillDir = File(extraDir, "custom-skill").also { it.mkdirs() }
+                File(customSkillDir, "SKILL.md").writeText("# custom-skill\n\nA custom skill.")
 
                 val tasks = listOf(TaskInfo("opsx-list", "opsx", "List changes"))
                 val generator =
@@ -577,20 +579,21 @@ class SkillGeneratorTest :
                 generator.generateSkillFiles(tasks, emptyList())
                 System.setProperty("user.home", origHome)
 
-                then("copies additional .md files into source dir") {
-                    val copied = File(tempDir, ".clkx/skills/custom-skill.md")
+                then("copies additional skill directories into source dir") {
+                    val copied = File(tempDir, ".clkx/skills/custom-skill/SKILL.md")
                     copied.exists() shouldBe true
                     copied.readText() shouldContain "A custom skill."
                 }
 
-                then("creates symlinks for additional files too") {
-                    val link = File(tempDir, ".claude/commands/custom-skill.md")
+                then("creates symlinks for additional skill directories too") {
+                    val link = File(tempDir, ".claude/skills/custom-skill")
                     link.exists() shouldBe true
                     Files.isSymbolicLink(link.toPath()) shouldBe true
+                    Files.isDirectory(link.toPath()) shouldBe true
                 }
 
                 then("still generates normal skill files") {
-                    File(tempDir, ".clkx/skills/opsx-list.md").exists() shouldBe true
+                    File(tempDir, ".clkx/skills/opsx-list/SKILL.md").exists() shouldBe true
                 }
             }
         }

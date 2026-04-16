@@ -28,27 +28,44 @@ class SkillGenerator(
         val sourceDir = File(homeDir(), SKILLS_DIR)
         sourceDir.mkdirs()
 
-        // Write all skills to the single source directory
+        // Clean stale skill subdirs
+        val activeNames = tasks.map { it.name }.toSet()
+        sourceDir
+            .listFiles()
+            .orEmpty()
+            .filter { it.isDirectory && it.name !in activeNames }
+            .forEach { it.deleteRecursively() }
+
+        // Write all skills as {name}/SKILL.md
         tasks.forEach { task ->
-            File(sourceDir, "${task.name}.md").writeText(buildCommandFile(task, builds))
+            val skillDir = File(sourceDir, task.name)
+            skillDir.mkdirs()
+            File(skillDir, SKILL_FILE).writeText(buildCommandFile(task, builds))
         }
 
-        // Copy .md files from additional source directories — never override ours
-        val ownedNames = tasks.map { "${it.name}.md" }.toSet()
+        // Copy entire skill directories from additional source dirs — never override ours
         additionalSourceDirs.forEach { extraDir ->
             if (extraDir.exists()) {
                 extraDir
                     .listFiles()
                     .orEmpty()
-                    .filter { it.isFile && it.name.endsWith(".md") && it.name !in ownedNames }
-                    .forEach { file -> file.copyTo(File(sourceDir, file.name), overwrite = true) }
+                    .filter { it.isDirectory && it.name !in activeNames }
+                    .forEach { dir ->
+                        dir.copyRecursively(File(sourceDir, dir.name), overwrite = true)
+                    }
             }
         }
 
-        // Symlink from each agent's expected location (home + project)
+        // Symlink from shared path .agents/skills/{name}/ to source
+        val sharedDir = File(rootDir, SHARED_SKILLS_DIR)
+        sharedDir.mkdirs()
+        sourceDir.listFiles().orEmpty().filter { it.isDirectory }.forEach { skillDir ->
+            createSymlink(File(sharedDir, skillDir.name), skillDir)
+        }
+
+        // Distribute to each agent (project-level only)
         agents.forEach { agent ->
-            val targetDirs = listOf(File(homeDir(), agent.skillDir), File(rootDir, agent.skillDir))
-            targetDirs.forEach { dir -> symlinkSkills(dir, sourceDir, agent) }
+            distributeSkills(File(rootDir, agent.skillsDir), sourceDir, agent)
         }
 
         return sourceDir
@@ -56,27 +73,35 @@ class SkillGenerator(
 
     private fun homeDir(): String = System.getProperty("user.home")
 
-    private fun symlinkSkills(
+    private fun distributeSkills(
         targetDir: File,
         sourceDir: File,
         agent: Agent,
     ) {
         targetDir.mkdirs()
-        val skillFiles = sourceDir.listFiles().orEmpty().filter { it.name.endsWith(".md") }
-        skillFiles.forEach { skillFile ->
-            val source = skillFile.toPath()
-            val linkName = skillFile.nameWithoutExtension + agent.skillExtension
-            val link = File(targetDir, linkName).toPath()
-            runCatching {
-                if (Files.isSymbolicLink(link) &&
-                    Files.readSymbolicLink(link).startsWith(sourceDir.toPath())
-                ) {
-                    Files.delete(link)
-                } else if (Files.exists(link)) {
-                    return@runCatching // user-owned file or foreign symlink — leave it
-                }
-                Files.createSymbolicLink(link, source)
+        sourceDir.listFiles().orEmpty().filter { it.isDirectory }.forEach { skillDir ->
+            val targetSkillDir = File(targetDir, skillDir.name)
+            if (agent.usesCopy) {
+                skillDir.copyRecursively(targetSkillDir, overwrite = true)
+            } else {
+                createSymlink(targetSkillDir, skillDir)
             }
+        }
+    }
+
+    private fun createSymlink(
+        target: File,
+        source: File,
+    ) {
+        val link = target.toPath()
+        val sourcePath = source.toPath()
+        runCatching {
+            if (Files.isSymbolicLink(link)) {
+                Files.delete(link)
+            } else if (Files.exists(link)) {
+                return@runCatching
+            }
+            Files.createSymbolicLink(link, sourcePath)
         }
     }
 
@@ -164,33 +189,67 @@ class SkillGenerator(
     }
 
     internal fun generateAgentDefinitions() {
-        // Clean inactive agent definitions first
+        // Clean inactive agent symlinks from project-level
         Agent.entries
             .filter { it !in agents }
             .mapNotNull { it.agentDir }
             .forEach { path ->
-                val file = File(rootDir, "$path/opsx.md")
-                if (file.exists()) file.delete()
+                val file = File(rootDir, "$path/$GENERATED_AGENT_FILE")
+                val filePath = file.toPath()
+                if (Files.isSymbolicLink(filePath) || Files.exists(filePath)) {
+                    Files.deleteIfExists(filePath)
+                }
             }
 
-        agents.forEach { agent -> writeAgentDefinition(agent) }
+        // Write source of truth to ~/.clkx/agents/opsx.md
+        val primaryAgent = agents.firstOrNull { it.agentDir != null } ?: return
+        val homeAgentsDir = File(homeDir(), AGENTS_DIR)
+        homeAgentsDir.mkdirs()
+        writeAgentDefinition(primaryAgent, homeAgentsDir)
+
+        // Distribute from each active agent's project dir (symlink or copy)
+        val sourceFile = File(homeAgentsDir, GENERATED_AGENT_FILE)
+        agents.forEach { agent ->
+            val agentDir = agent.agentDir ?: return@forEach
+            val projectDir = File(rootDir, agentDir)
+            projectDir.mkdirs()
+            distributeAgentFile(File(projectDir, GENERATED_AGENT_FILE), sourceFile, agent)
+
+            // Distribute additional .md files from ~/.clkx/agents/
+            homeAgentsDir
+                .listFiles()
+                .orEmpty()
+                .filter { it.isFile && it.name.endsWith(".md") && it.name != GENERATED_AGENT_FILE }
+                .forEach { src -> distributeAgentFile(File(projectDir, src.name), src, agent) }
+        }
     }
 
-    private fun writeAgentDefinition(agent: Agent) {
-        val agentDir = agent.agentDir ?: return
-        val dir = File(rootDir, agentDir)
-        dir.mkdirs()
-        val file = File(dir, "opsx.md")
-        file.writeText(buildAgentDefinition(agent))
+    private fun distributeAgentFile(
+        target: File,
+        source: File,
+        agent: Agent,
+    ) {
+        if (agent.usesCopy) {
+            source.copyTo(target, overwrite = true)
+        } else {
+            createSymlink(target, source)
+        }
+    }
 
-        // Copy .md files from additional agent directories (skip opsx.md — reserved for generated)
+    private fun writeAgentDefinition(
+        agent: Agent,
+        targetDir: File,
+    ) {
+        File(targetDir, GENERATED_AGENT_FILE).writeText(buildAgentDefinition(agent))
+
+        // Copy .md files from additional agent directories to ~/.clkx/agents/
         additionalAgentDirs.forEach { extraDir ->
             if (extraDir.exists()) {
                 extraDir
                     .listFiles()
                     .orEmpty()
                     .filter { it.isFile && it.name.endsWith(".md") && it.name != GENERATED_AGENT_FILE }
-                    .forEach { src -> src.copyTo(File(dir, src.name), overwrite = true) }
+                    .forEach { src -> src.copyTo(File(targetDir, src.name), overwrite = true) }
             }
         }
     }
@@ -424,6 +483,9 @@ class SkillGenerator(
             setOf("opsx", "srcx", "wrkx") + Agent.allIds
 
         const val SKILLS_DIR = ".clkx/skills"
+        const val AGENTS_DIR = ".clkx/agents"
+        const val SHARED_SKILLS_DIR = ".agents/skills"
+        const val SKILL_FILE = "SKILL.md"
         private const val GENERATED_AGENT_FILE = "opsx.md"
 
         val AGENT_TASKS =
@@ -438,16 +500,10 @@ class SkillGenerator(
                 "opsx-ff",
             )
 
+        @Suppress("UnusedParameter")
         fun generatedDirs(agent: Agent? = null): List<File> {
             val home = File(System.getProperty("user.home"))
-            val targets =
-                if (agent != null) {
-                    listOf(agent.skillDir)
-                } else {
-                    Agent.allSkillDirs
-                }
-            return listOf(File(home, SKILLS_DIR)) +
-                targets.map { File(home, it) }
+            return listOf(File(home, SKILLS_DIR), File(home, AGENTS_DIR))
         }
 
         fun instructionFiles(

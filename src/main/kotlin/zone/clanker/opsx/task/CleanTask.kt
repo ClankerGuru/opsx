@@ -28,7 +28,7 @@ abstract class CleanTask : DefaultTask() {
 
         val cleaned =
             cleanSourceSkills(sourceDir) +
-                cleanAgentSymlinks(home, root, sourceDir) +
+                cleanAgentSymlinks(root, sourceDir) +
                 cleanAgentDefinitions(root) +
                 cleanInstructionFiles(root) +
                 cleanContextDirs(root)
@@ -38,22 +38,19 @@ abstract class CleanTask : DefaultTask() {
 
     private fun cleanSourceSkills(sourceDir: File): Int {
         if (!sourceDir.exists()) return 0
-        val count = sourceDir.listFiles().orEmpty().count { it.name.endsWith(".md") }
+        val count = sourceDir.listFiles().orEmpty().count { it.isDirectory }
         sourceDir.deleteRecursively()
         logger.quiet("opsx-clean: deleted ~/.clkx/skills/ ($count skills)")
         return 1
     }
 
     private fun cleanAgentSymlinks(
-        home: File,
         root: File,
         sourceDir: File,
     ): Int {
         var count = 0
-        Agent.allSkillDirs.forEach { target ->
-            listOf(File(home, target), File(root, target)).forEach { dir ->
-                count += cleanSymlinksInDir(dir, root, target, sourceDir)
-            }
+        (Agent.allSkillsDirs + SkillGenerator.SHARED_SKILLS_DIR).forEach { target ->
+            count += cleanSymlinksInDir(File(root, target), root, target, sourceDir)
         }
         return count
     }
@@ -70,7 +67,7 @@ abstract class CleanTask : DefaultTask() {
                 .listFiles()
                 .orEmpty()
                 .filter { isOpsxSymlink(it, sourceDir) || isBrokenSymlink(it) }
-        toRemove.forEach { it.delete() }
+        toRemove.forEach { Files.deleteIfExists(it.toPath()) }
         if (toRemove.isNotEmpty()) {
             val rel = runCatching { dir.relativeTo(root).path }.getOrDefault("~/$target")
             logger.quiet("opsx-clean: removed ${toRemove.size} symlinks from $rel")
@@ -80,11 +77,23 @@ abstract class CleanTask : DefaultTask() {
 
     private fun cleanAgentDefinitions(root: File): Int {
         var count = 0
+        val home = File(System.getProperty("user.home"))
+
+        // Delete ~/.clkx/agents/ directory
+        val agentsDir = File(home, SkillGenerator.AGENTS_DIR)
+        if (agentsDir.exists()) {
+            agentsDir.deleteRecursively()
+            logger.quiet("opsx-clean: deleted ~/.clkx/agents/")
+            count++
+        }
+
+        // Remove symlinks and files from project-level agent dirs
         Agent.entries.forEach { agent ->
             val agentDir = agent.agentDir ?: return@forEach
             val agentFile = File(root, "$agentDir/opsx.md")
-            if (agentFile.exists()) {
-                agentFile.delete()
+            val path = agentFile.toPath()
+            if (Files.isSymbolicLink(path) || agentFile.exists()) {
+                Files.deleteIfExists(path)
                 logger.quiet("opsx-clean: removed ${agentFile.relativeTo(root).path}")
                 count++
             }
