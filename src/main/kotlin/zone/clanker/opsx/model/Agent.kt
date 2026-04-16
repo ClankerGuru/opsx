@@ -29,16 +29,16 @@ enum class Agent(
         listOf("exec"),
         "-m",
         ".codex/skills",
-        null,
-        null,
+        "AGENTS.md",
+        ".agents",
     ),
     OPENCODE(
         "opencode",
         listOf("run"),
         "-m",
         ".opencode/skills",
-        null,
-        null,
+        "AGENTS.md",
+        ".opencode/agents",
     ),
     ;
 

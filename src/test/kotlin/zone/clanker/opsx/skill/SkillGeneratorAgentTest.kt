@@ -159,7 +159,7 @@ class SkillGeneratorAgentTest :
         }
 
         given("SkillGenerator.generateAgentDefinitions for codex") {
-            `when`("agents is listOf(CODEX) (agentDir = null)") {
+            `when`("agents is listOf(CODEX)") {
                 val tempDir =
                     File.createTempFile("opsx-agent-codex", "").also {
                         it.delete()
@@ -175,16 +175,32 @@ class SkillGeneratorAgentTest :
 
                 System.setProperty("user.home", origHome)
 
-                then("does not create any agent definition file") {
+                then("writes source of truth to ~/.clkx/agents/opsx.md") {
+                    File(tempDir, ".clkx/agents/opsx.md").exists() shouldBe true
+                }
+
+                then("creates symlink at .agents/opsx.md") {
+                    val path = File(tempDir, ".agents/opsx.md").toPath()
+                    Files.exists(path) shouldBe true
+                    Files.isSymbolicLink(path) shouldBe true
+                }
+
+                then("does not create claude or copilot agent files") {
                     File(tempDir, ".claude/agents/opsx.md").exists() shouldBe false
                     File(tempDir, ".github/agents/opsx.md").exists() shouldBe false
-                    File(tempDir, ".clkx/agents/opsx.md").exists() shouldBe false
+                }
+
+                then("has system prompt with lifecycle and rules") {
+                    val content = File(tempDir, ".agents/opsx.md").readText()
+                    content shouldContain "You are the opsx workflow agent"
+                    content shouldContain "## Change Lifecycle"
+                    content shouldContain "## Strict Rules"
                 }
             }
         }
 
         given("SkillGenerator.generateAgentDefinitions for opencode") {
-            `when`("agents is listOf(OPENCODE) (agentDir = null)") {
+            `when`("agents is listOf(OPENCODE)") {
                 val tempDir =
                     File.createTempFile("opsx-agent-opencode", "").also {
                         it.delete()
@@ -200,10 +216,26 @@ class SkillGeneratorAgentTest :
 
                 System.setProperty("user.home", origHome)
 
-                then("does not create any agent definition file") {
+                then("writes source of truth to ~/.clkx/agents/opsx.md") {
+                    File(tempDir, ".clkx/agents/opsx.md").exists() shouldBe true
+                }
+
+                then("creates symlink at .opencode/agents/opsx.md") {
+                    val path = File(tempDir, ".opencode/agents/opsx.md").toPath()
+                    Files.exists(path) shouldBe true
+                    Files.isSymbolicLink(path) shouldBe true
+                }
+
+                then("does not create claude or copilot agent files") {
                     File(tempDir, ".claude/agents/opsx.md").exists() shouldBe false
                     File(tempDir, ".github/agents/opsx.md").exists() shouldBe false
-                    File(tempDir, ".clkx/agents/opsx.md").exists() shouldBe false
+                }
+
+                then("has system prompt with lifecycle and rules") {
+                    val content = File(tempDir, ".opencode/agents/opsx.md").readText()
+                    content shouldContain "You are the opsx workflow agent"
+                    content shouldContain "## Change Lifecycle"
+                    content shouldContain "## Strict Rules"
                 }
             }
         }

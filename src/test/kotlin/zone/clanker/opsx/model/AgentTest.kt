@@ -84,16 +84,16 @@ class AgentTest :
             }
 
             `when`("agent is CODEX") {
-                then("has null instructionFile and agentDir") {
-                    Agent.CODEX.instructionFile shouldBe null
-                    Agent.CODEX.agentDir shouldBe null
+                then("has AGENTS.md instructionFile and .agents agentDir") {
+                    Agent.CODEX.instructionFile shouldBe "AGENTS.md"
+                    Agent.CODEX.agentDir shouldBe ".agents"
                 }
             }
 
             `when`("agent is OPENCODE") {
-                then("has null instructionFile and agentDir") {
-                    Agent.OPENCODE.instructionFile shouldBe null
-                    Agent.OPENCODE.agentDir shouldBe null
+                then("has AGENTS.md instructionFile and .opencode/agents agentDir") {
+                    Agent.OPENCODE.instructionFile shouldBe "AGENTS.md"
+                    Agent.OPENCODE.agentDir shouldBe ".opencode/agents"
                 }
             }
         }

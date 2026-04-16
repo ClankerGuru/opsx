@@ -513,7 +513,7 @@ class SkillGenerator(
             if (agent != null) {
                 val files = mutableListOf(File(rootDir, "AGENTS.md"))
                 agent.instructionFile?.let { files.add(File(rootDir, it)) }
-                return files
+                return files.distinct()
             }
             return listOf(
                 File(rootDir, "CLAUDE.md"),
