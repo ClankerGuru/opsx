@@ -66,6 +66,46 @@ class SkillGeneratorTest :
                 then("contains notes for known tasks") {
                     content shouldContain "## Notes"
                 }
+
+                then("starts with YAML frontmatter") {
+                    content.startsWith("---") shouldBe true
+                    content shouldContain "name: opsx-sync"
+                    content shouldContain "description: |"
+                }
+            }
+        }
+
+        given("SkillGenerator.buildCommandFile frontmatter for mapped task") {
+            val project = ProjectBuilder.builder().build()
+            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList(), listOf(Agent.CLAUDE))
+            val task = TaskInfo("opsx-propose", "opsx", "Propose a new change")
+
+            `when`("task has a SKILL_TRIGGERS entry") {
+                val content = generator.buildCommandFile(task, emptyList())
+
+                then("frontmatter description includes trigger text") {
+                    content shouldContain "name: opsx-propose"
+                    content shouldContain "description: |"
+                    content shouldContain "Use when"
+                }
+            }
+        }
+
+        given("SkillGenerator.buildCommandFile frontmatter for unmapped task") {
+            val project = ProjectBuilder.builder().build()
+            val generator = SkillGenerator(project.projectDir, emptyList(), emptyList(), listOf(Agent.CLAUDE))
+            val task = TaskInfo("my-custom-task", "opsx", "A custom task")
+
+            `when`("task has no SKILL_TRIGGERS entry") {
+                val content = generator.buildCommandFile(task, emptyList())
+
+                then("frontmatter has name and description without trigger") {
+                    content.startsWith("---") shouldBe true
+                    content shouldContain "name: my-custom-task"
+                    content shouldContain "description: |"
+                    content shouldContain "A custom task"
+                    content shouldNotContain "Use when"
+                }
             }
         }
 
@@ -106,8 +146,11 @@ class SkillGeneratorTest :
                     File(tempDir, ".clkx/skills/opsx-sync/SKILL.md").exists() shouldBe true
                 }
 
-                then("skill files have correct content") {
+                then("skill files have correct content with frontmatter") {
                     val content = File(tempDir, ".clkx/skills/opsx-list/SKILL.md").readText()
+                    content.startsWith("---") shouldBe true
+                    content shouldContain "name: opsx-list"
+                    content shouldContain "description: |"
                     content shouldContain "# opsx-list"
                     content shouldContain "List changes"
                 }

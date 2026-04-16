@@ -117,12 +117,10 @@ class SkillGenerator(
 
             appendLine("---")
             appendLine("name: ${task.name}")
-            append("description: ")
-            if (whenToUse != null) {
-                appendLine(">")
-                appendLine("  $desc $whenToUse")
-            } else {
-                appendLine(desc)
+            appendLine("description: |")
+            val fullDescription = listOfNotNull(desc, whenToUse).joinToString(" ")
+            fullDescription.lines().forEach { line ->
+                appendLine("  $line")
             }
             appendLine("---")
             appendLine()
