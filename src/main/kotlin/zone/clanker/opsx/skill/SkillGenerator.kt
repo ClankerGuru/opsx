@@ -110,11 +110,26 @@ class SkillGenerator(
         builds: List<String>,
     ): String =
         buildString {
+            val desc = task.description.ifEmpty { "No description available." }
+            val usage = TASK_USAGE[task.name]
+            val whenToUse = SKILL_TRIGGERS[task.name]
+
+            // YAML frontmatter (agentskills.io spec)
+            appendLine("---")
+            appendLine("name: ${task.name}")
+            append("description: ")
+            if (whenToUse != null) {
+                appendLine(">")
+                appendLine("  $desc $whenToUse")
+            } else {
+                appendLine(desc)
+            }
+            appendLine("---")
+            appendLine()
             appendLine("# ${task.name}")
             appendLine()
-            appendLine(task.description.ifEmpty { "No description available." })
+            appendLine(desc)
 
-            val usage = TASK_USAGE[task.name]
             if (usage != null) {
                 appendLine()
                 appendLine("## Usage")
@@ -657,6 +672,48 @@ class SkillGenerator(
                         flags = emptyMap(),
                         notes = "Archives all changes with status completed, done, or verified.",
                     ),
+            )
+
+        internal val SKILL_TRIGGERS =
+            mapOf(
+                "opsx-propose" to
+                    "Use when the user wants to propose, start, or plan a new code change.",
+                "opsx-apply" to
+                    "Use when the user wants to implement or apply a proposed change.",
+                "opsx-verify" to
+                    "Use when the user wants to verify or review a completed change.",
+                "opsx-archive" to
+                    "Use when the user wants to archive or close a finished change.",
+                "opsx-status" to
+                    "Use when the user wants to see the status of all changes.",
+                "opsx-continue" to
+                    "Use when the user wants to resume or continue work on an in-progress change.",
+                "opsx-explore" to
+                    "Use when the user wants to ask questions about the codebase.",
+                "opsx-feedback" to
+                    "Use when the user wants to provide feedback or refinements on a change.",
+                "opsx-onboard" to
+                    "Use when a new contributor needs a guided tour of the project.",
+                "opsx-ff" to
+                    "Use when a change needs to be updated after other changes landed.",
+                "opsx-bulk-archive" to
+                    "Use when the user wants to archive all completed changes at once.",
+                "srcx-context" to
+                    "Use when the user needs to regenerate or refresh codebase context.",
+                "srcx-clean" to
+                    "Use when the user wants to delete generated srcx output files.",
+                "wrkx" to
+                    "Use when the user wants to see available workspace tasks.",
+                "wrkx-clone" to
+                    "Use when the user wants to clone all repos in the workspace.",
+                "wrkx-pull" to
+                    "Use when the user wants to pull latest changes for all repos.",
+                "wrkx-checkout" to
+                    "Use when the user wants to checkout branches across all repos.",
+                "wrkx-status" to
+                    "Use when the user wants a status report of all workspace repos.",
+                "wrkx-prune" to
+                    "Use when the user wants to remove repo directories not in wrkx.json.",
             )
     }
 }
