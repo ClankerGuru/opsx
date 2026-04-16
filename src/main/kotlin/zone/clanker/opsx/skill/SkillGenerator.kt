@@ -202,7 +202,12 @@ class SkillGenerator(
             }
 
         // Write source of truth to ~/.clkx/agents/opsx.md
-        val primaryAgent = agents.firstOrNull { it.agentDir != null } ?: return
+        // Prefer CLAUDE for frontmatter, then COPILOT, then any with agentDir
+        val primaryAgent =
+            PREFERRED_PRIMARY_ORDER
+                .firstOrNull { it in agents && it.agentDir != null }
+                ?: agents.firstOrNull { it.agentDir != null }
+                ?: return
         val homeAgentsDir = File(homeDir(), AGENTS_DIR)
         homeAgentsDir.mkdirs()
         writeAgentDefinition(primaryAgent, homeAgentsDir)
@@ -487,6 +492,7 @@ class SkillGenerator(
         const val SHARED_SKILLS_DIR = ".agents/skills"
         const val SKILL_FILE = "SKILL.md"
         private const val GENERATED_AGENT_FILE = "opsx.md"
+        private val PREFERRED_PRIMARY_ORDER = listOf(Agent.CLAUDE, Agent.COPILOT)
 
         val AGENT_TASKS =
             setOf(

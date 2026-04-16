@@ -8,6 +8,19 @@ import zone.clanker.opsx.model.Agent
 import java.io.File
 import java.nio.file.Files
 
+private fun <T> withHome(
+    tempDir: File,
+    block: () -> T,
+): T {
+    val origHome = System.getProperty("user.home")
+    System.setProperty("user.home", tempDir.absolutePath)
+    return try {
+        block()
+    } finally {
+        System.setProperty("user.home", origHome)
+    }
+}
+
 class SkillGeneratorAgentTest :
     BehaviorSpec({
         given("SkillGenerator.generateInstructionFiles with agent that has no instructionFile") {
@@ -75,13 +88,10 @@ class SkillGeneratorAgentTest :
                     }
                 tempDir.deleteOnExit()
 
-                val origHome = System.getProperty("user.home")
-                System.setProperty("user.home", tempDir.absolutePath)
-
-                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), listOf(Agent.CLAUDE))
-                generator.generateAgentDefinitions()
-
-                System.setProperty("user.home", origHome)
+                withHome(tempDir) {
+                    val generator = SkillGenerator(tempDir, emptyList(), emptyList(), listOf(Agent.CLAUDE))
+                    generator.generateAgentDefinitions()
+                }
 
                 then("writes source of truth to ~/.clkx/agents/opsx.md") {
                     File(tempDir, ".clkx/agents/opsx.md").exists() shouldBe true
@@ -120,13 +130,10 @@ class SkillGeneratorAgentTest :
                     }
                 tempDir.deleteOnExit()
 
-                val origHome = System.getProperty("user.home")
-                System.setProperty("user.home", tempDir.absolutePath)
-
-                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), listOf(Agent.COPILOT))
-                generator.generateAgentDefinitions()
-
-                System.setProperty("user.home", origHome)
+                withHome(tempDir) {
+                    val generator = SkillGenerator(tempDir, emptyList(), emptyList(), listOf(Agent.COPILOT))
+                    generator.generateAgentDefinitions()
+                }
 
                 then("writes source of truth to ~/.clkx/agents/opsx.md") {
                     File(tempDir, ".clkx/agents/opsx.md").exists() shouldBe true
@@ -167,13 +174,10 @@ class SkillGeneratorAgentTest :
                     }
                 tempDir.deleteOnExit()
 
-                val origHome = System.getProperty("user.home")
-                System.setProperty("user.home", tempDir.absolutePath)
-
-                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), listOf(Agent.CODEX))
-                generator.generateAgentDefinitions()
-
-                System.setProperty("user.home", origHome)
+                withHome(tempDir) {
+                    val generator = SkillGenerator(tempDir, emptyList(), emptyList(), listOf(Agent.CODEX))
+                    generator.generateAgentDefinitions()
+                }
 
                 then("writes source of truth to ~/.clkx/agents/opsx.md") {
                     File(tempDir, ".clkx/agents/opsx.md").exists() shouldBe true
@@ -208,13 +212,10 @@ class SkillGeneratorAgentTest :
                     }
                 tempDir.deleteOnExit()
 
-                val origHome = System.getProperty("user.home")
-                System.setProperty("user.home", tempDir.absolutePath)
-
-                val generator = SkillGenerator(tempDir, emptyList(), emptyList(), listOf(Agent.OPENCODE))
-                generator.generateAgentDefinitions()
-
-                System.setProperty("user.home", origHome)
+                withHome(tempDir) {
+                    val generator = SkillGenerator(tempDir, emptyList(), emptyList(), listOf(Agent.OPENCODE))
+                    generator.generateAgentDefinitions()
+                }
 
                 then("writes source of truth to ~/.clkx/agents/opsx.md") {
                     File(tempDir, ".clkx/agents/opsx.md").exists() shouldBe true
