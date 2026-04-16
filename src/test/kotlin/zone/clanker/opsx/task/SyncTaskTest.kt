@@ -12,7 +12,7 @@ class SyncTaskTest :
 
         given("SyncTask.isOpsxSymlink (via reflection)") {
 
-            `when`("file is a symlink pointing into sourceDir") {
+            `when`("directory symlink pointing into sourceDir") {
                 val tempDir =
                     File.createTempFile("opsx-sync", "").apply {
                         delete()
@@ -21,13 +21,14 @@ class SyncTaskTest :
                     }
                 val sourceDir = File(tempDir, "source")
                 sourceDir.mkdirs()
-                val sourceFile = File(sourceDir, "test.md")
-                sourceFile.writeText("content")
+                val sourceSkillDir = File(sourceDir, "opsx-list")
+                sourceSkillDir.mkdirs()
+                File(sourceSkillDir, "SKILL.md").writeText("content")
 
                 val linkDir = File(tempDir, "links")
                 linkDir.mkdirs()
-                val link = File(linkDir, "test.md")
-                Files.createSymbolicLink(link.toPath(), sourceFile.toPath())
+                val link = File(linkDir, "opsx-list")
+                Files.createSymbolicLink(link.toPath(), sourceSkillDir.toPath())
 
                 then("returns true") {
                     val result = invokeIsOpsxSymlink(link, sourceDir)
@@ -35,7 +36,7 @@ class SyncTaskTest :
                 }
             }
 
-            `when`("file is a symlink pointing outside sourceDir") {
+            `when`("directory symlink pointing outside sourceDir") {
                 val tempDir =
                     File.createTempFile("opsx-sync", "").apply {
                         delete()
@@ -46,13 +47,14 @@ class SyncTaskTest :
                 sourceDir.mkdirs()
                 val otherDir = File(tempDir, "other")
                 otherDir.mkdirs()
-                val otherFile = File(otherDir, "test.md")
-                otherFile.writeText("content")
+                val otherSkillDir = File(otherDir, "opsx-list")
+                otherSkillDir.mkdirs()
+                File(otherSkillDir, "SKILL.md").writeText("content")
 
                 val linkDir = File(tempDir, "links")
                 linkDir.mkdirs()
-                val link = File(linkDir, "test.md")
-                Files.createSymbolicLink(link.toPath(), otherFile.toPath())
+                val link = File(linkDir, "opsx-list")
+                Files.createSymbolicLink(link.toPath(), otherSkillDir.toPath())
 
                 then("returns false") {
                     val result = invokeIsOpsxSymlink(link, sourceDir)
@@ -107,7 +109,7 @@ class SyncTaskTest :
                     }
                 val skillsDir = File(tempDir, ".clkx/skills")
                 skillsDir.mkdirs()
-                val agentDir = File(tempDir, ".claude/commands")
+                val agentDir = File(tempDir, ".claude/skills")
                 agentDir.mkdirs()
 
                 // Invoke private methods via reflection

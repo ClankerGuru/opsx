@@ -46,14 +46,14 @@ class AgentTest :
             }
         }
 
-        given("Agent.allSkillDirs") {
+        given("Agent.allSkillsDirs") {
             then("returns all four skill directories") {
-                Agent.allSkillDirs shouldContainExactlyInAnyOrder
+                Agent.allSkillsDirs shouldContainExactlyInAnyOrder
                     listOf(
-                        ".claude/commands",
-                        ".github/prompts",
-                        ".codex/prompts",
-                        ".opencode/commands",
+                        ".claude/skills",
+                        ".github/skills",
+                        ".codex/skills",
+                        ".opencode/skills",
                     )
             }
         }
@@ -70,23 +70,30 @@ class AgentTest :
                     Agent.CLAUDE.cliCommand shouldBe "claude"
                     Agent.CLAUDE.nonInteractiveArgs shouldBe listOf("-p", "--dangerously-skip-permissions")
                     Agent.CLAUDE.modelFlag shouldBe "--model"
-                    Agent.CLAUDE.skillDir shouldBe ".claude/commands"
+                    Agent.CLAUDE.skillsDir shouldBe ".claude/skills"
                     Agent.CLAUDE.instructionFile shouldBe "CLAUDE.md"
                     Agent.CLAUDE.agentDir shouldBe ".claude/agents"
+                    Agent.CLAUDE.usesCopy shouldBe false
+                }
+            }
+
+            `when`("agent is COPILOT") {
+                then("usesCopy is true") {
+                    Agent.COPILOT.usesCopy shouldBe true
                 }
             }
 
             `when`("agent is CODEX") {
-                then("has null instructionFile and agentDir") {
-                    Agent.CODEX.instructionFile shouldBe null
-                    Agent.CODEX.agentDir shouldBe null
+                then("has AGENTS.md instructionFile and .agents agentDir") {
+                    Agent.CODEX.instructionFile shouldBe "AGENTS.md"
+                    Agent.CODEX.agentDir shouldBe ".agents"
                 }
             }
 
             `when`("agent is OPENCODE") {
-                then("has null instructionFile and agentDir") {
-                    Agent.OPENCODE.instructionFile shouldBe null
-                    Agent.OPENCODE.agentDir shouldBe null
+                then("has AGENTS.md instructionFile and .opencode/agents agentDir") {
+                    Agent.OPENCODE.instructionFile shouldBe "AGENTS.md"
+                    Agent.OPENCODE.agentDir shouldBe ".opencode/agents"
                 }
             }
         }

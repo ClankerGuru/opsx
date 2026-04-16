@@ -67,12 +67,26 @@ class OpsxPluginSyncTest :
 
                 System.setProperty("user.home", origHome)
 
-                then("generates skill files and .gitignore") {
+                then("generates skill files in source dir") {
                     val skillsDir = File(tempDir, ".clkx/skills")
                     skillsDir.exists() shouldBe true
-                    val gitignore = File(skillsDir, ".gitignore")
+                }
+
+                then("~/.clkx/.gitignore contains *") {
+                    val clkxGitignore = File(tempDir, ".clkx/.gitignore")
+                    clkxGitignore.exists() shouldBe true
+                    clkxGitignore.readText() shouldContain "*"
+                }
+
+                then("generates .claude/skills/ with gitignore") {
+                    val claudeSkillsDir = File(tempDir, ".claude/skills")
+                    claudeSkillsDir.exists() shouldBe true
+                    val gitignore = File(claudeSkillsDir, ".gitignore")
                     gitignore.exists() shouldBe true
-                    gitignore.readText() shouldContain "*"
+                    val content = gitignore.readText()
+                    content shouldContain "opsx*"
+                    content shouldContain "srcx*"
+                    content shouldContain "wrkx*"
                 }
             }
         }
