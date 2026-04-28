@@ -38,6 +38,6 @@ jobs:
         with:
           name: test-results
           path: |
-            build/reports/tests/
-            build/reports/kover/
+            opsx/build/reports/tests/
+            opsx/build/reports/kover/
           retention-days: 14

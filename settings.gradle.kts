@@ -7,3 +7,9 @@ plugins {
 }
 
 rootProject.name = "opsx"
+
+include(
+    "app",
+    "cli",
+    "tui",
+)

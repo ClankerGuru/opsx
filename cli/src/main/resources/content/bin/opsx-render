@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+#
+# opsx-render — thin wrapper that delegates to the Kotlin-backed
+# `opsx-watch` Gradle task. The old awk/tail-based replay logic has
+# been removed: all rendering (colors, glyphs, host filter, follow
+# mode) now lives in `zone.clanker.opsx.task.WatchTask` plus
+# `activity.RenderProfile`/`TimelineRenderer`.
+#
+# Usage:
+#     opsx-render [<name>] [--change <name>] [--host <name>] [--follow] [--render-host <name>]
+#     opsx-render -h | --help
+#
+# Forwarded options:
+#     --change <name>        -Pzone.clanker.opsx.watch.change=<name>
+#     --host <token>         --host <token>         (repeatable)
+#     --follow               --follow
+#     --render-host <token>  --render-host <token>
+#
+# Active-change resolution mirrors opsx-log/opsx-status: --change wins,
+# then $OPSX_ACTIVE_CHANGE, else the most-recently-modified
+# non-terminal change in opsx/changes/.
+
+set -euo pipefail
+
+print_usage() {
+    cat <<'EOF'
+opsx-render — delegate to opsx-watch (Kotlin rendering pipeline).
+
+Usage:
+    opsx-render [<name>] [--change <name>] [--host <name>] [--follow] [--render-host <name>]
+    opsx-render -h | --help
+
+Flags:
+    --change <name>        Override the active change.
+    --host <token>         Filter to rows whose host= matches (claude|copilot|codex|opencode|unknown).
+    --render-host <token>  Override the resolved render host (drives follow mode choice).
+    --follow               Tail the log and render rows as they are appended.
+
+Environment:
+    OPSX_ACTIVE_CHANGE   Fallback for --change.
+    OPSX_ROOT            Override workspace root used to locate opsx/changes/.
+EOF
+}
+
+CHANGE_OVERRIDE=""
+HOST_FILTERS=()
+RENDER_HOST=""
+FOLLOW=0
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -h|--help)        print_usage; exit 0 ;;
+        --change)         CHANGE_OVERRIDE="${2:-}"; shift 2 ;;
+        --host)           HOST_FILTERS+=("${2:-}"); shift 2 ;;
+        --render-host)    RENDER_HOST="${2:-}"; shift 2 ;;
+        --follow)         FOLLOW=1; shift ;;
+        --)               shift; break ;;
+        -*)               printf 'opsx-render: unknown flag %s\n' "$1" >&2; print_usage >&2; exit 2 ;;
+        *)
+            if [ -z "$CHANGE_OVERRIDE" ]; then
+                CHANGE_OVERRIDE="$1"; shift
+            else
+                printf 'opsx-render: unexpected extra positional %s\n' "$1" >&2
+                print_usage >&2
+                exit 2
+            fi
+            ;;
+    esac
+done
+
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+WORKSPACE="${OPSX_ROOT:-$(cd "$SELF_DIR/../.." && pwd)}"
+
+resolve_change_name() {
+    if [ -n "$CHANGE_OVERRIDE" ]; then
+        printf '%s' "$CHANGE_OVERRIDE"
+        return
+    fi
+    if [ -n "${OPSX_ACTIVE_CHANGE:-}" ]; then
+        printf '%s' "$OPSX_ACTIVE_CHANGE"
+        return
+    fi
+    local best_name="" best_mtime=0
+    for yaml in "$WORKSPACE"/opsx/changes/*/.opsx.yaml; do
+        [ -f "$yaml" ] || continue
+        local status name
+        status=$(awk '/^status:/{sub(/^status:[ \t]*/,""); gsub(/["'"'"']/,""); print; exit}' "$yaml" 2>/dev/null || true)
+        case "$status" in
+            completed|verified|archived|deleted) continue ;;
+        esac
+        local mtime
+        mtime=$(stat -f %m "$yaml" 2>/dev/null || stat -c %Y "$yaml" 2>/dev/null || echo 0)
+        if [ "$mtime" -gt "$best_mtime" ]; then
+            best_mtime=$mtime
+            name="$(basename "$(dirname "$yaml")")"
+            best_name="$name"
+        fi
+    done
+    printf '%s' "$best_name"
+}
+
+CHANGE="$(resolve_change_name)"
+if [ -z "$CHANGE" ]; then
+    printf 'opsx-render: could not resolve an active change\n' >&2
+    exit 1
+fi
+
+cd "$WORKSPACE"
+
+cmd=(./gradlew -q opsx-watch "-Pzone.clanker.opsx.watch.change=$CHANGE")
+if [ "$FOLLOW" -eq 1 ]; then
+    cmd+=(--follow)
+fi
+if [ -n "$RENDER_HOST" ]; then
+    cmd+=(--render-host "$RENDER_HOST")
+fi
+for h in "${HOST_FILTERS[@]:-}"; do
+    [ -n "$h" ] || continue
+    cmd+=(--host "$h")
+done
+
+exec "${cmd[@]}"

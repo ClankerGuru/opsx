@@ -1,0 +1,423 @@
+#!/usr/bin/env bash
+#
+# opsx-status — show opsx change status. Shared across every AI CLI.
+#
+# Usage:
+#     opsx-status                       # ledger of every change
+#     opsx-status --archive             # include opsx/archive/ + deleted
+#     opsx-status --only <status>       # filter the ledger to one state
+#     opsx-status --host <name>         # filter tree rows by host=<name>
+#     opsx-status <change>              # render one change as a tree
+#     opsx-status <change> --follow     # live-update the tree
+#
+# Design system: see opsx/changes/status-display-design-system/design.md.
+# Pure shell. bash 3.2 + BSD awk compatible (macOS defaults). No Python.
+
+set -u
+
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="${OPSX_ROOT:-$(cd "$SELF_DIR/../.." && pwd)}"
+
+INCLUDE_ARCHIVE=0
+FOLLOW=0
+ONLY_STATUS=""
+HOST_FILTER=""
+CHANGE=""
+# TEE_MODE: auto (default — tee when stdout is a tty), force (--tee), off (--no-tee)
+TEE_MODE="auto"
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --archive)       INCLUDE_ARCHIVE=1 ;;
+        --follow|-f)     FOLLOW=1 ;;
+        --only)          shift; ONLY_STATUS="${1:-}" ;;
+        --host)          shift; HOST_FILTER="${1:-}" ;;
+        --tee)           TEE_MODE="force" ;;
+        --no-tee)        TEE_MODE="off" ;;
+        -h|--help)
+            sed -n '3,13p' "$0" | sed 's/^# \{0,1\}//'
+            exit 0
+            ;;
+        -*)  echo "opsx-status: unknown flag $1" >&2; exit 2 ;;
+        *)   CHANGE="$1" ;;
+    esac
+    shift
+done
+
+# shellcheck source=./_opsx-style.sh
+. "$SELF_DIR/_opsx-style.sh"
+
+yaml_val() {
+    local file="$1" key="$2"
+    awk -v k="$key" '
+        $0 ~ "^" k ":" {
+            sub("^" k ":[ \t]*", "")
+            gsub(/^["'\'']|["'\'']$/, "")
+            print; exit
+        }
+    ' "$file"
+}
+
+# Count tasks in a tasks.md: emits "<done> <total>" on stdout.
+count_tasks() {
+    local tasks="$1"
+    if [ ! -f "$tasks" ]; then
+        printf '0 0'
+        return
+    fi
+    awk '
+        /^- \[.\] [^ ]+ \| / {
+            total++
+            mark = substr($0, 4, 1)
+            if (mark == "x") done++
+        }
+        END { printf "%d %d", done+0, total+0 }
+    ' "$tasks"
+}
+
+# Parse activity.log and emit "<first_ts_epoch>" on stdout, or "" if
+# no entries.
+first_log_ts() {
+    local log="$1"
+    [ -f "$log" ] || { printf ''; return; }
+    awk 'NF >= 4 { print $1; exit }' "$log"
+}
+
+iso_to_epoch() {
+    local ts="$1"
+    date -u -jf "%Y-%m-%dT%H:%M:%SZ" "$ts" +%s 2>/dev/null \
+      || date -u -d "$ts" +%s 2>/dev/null \
+      || echo 0
+}
+
+# Walk activity.log and emit `1` on stdout if any two start→done (or
+# start→now) spans from *different* agents overlap, otherwise `0`.
+# The render_tree awk block already tags per-agent groups; this helper
+# drives the *root header* tag so the reader sees parallelism even
+# when each agent's own group is strictly sequential.
+detect_cross_agent_parallel() {
+    local log="$1" now="$2"
+    [ -f "$log" ] || { printf '0'; return; }
+    awk -v NOW="$now" '
+        function iso_to_epoch_utc(y, mo, d, h, mi, s,   era, yoe, doy, doe, days) {
+            if (mo <= 2) { y -= 1 }
+            era = (y >= 0 ? y : y - 399)
+            era = int(era / 400)
+            yoe = y - era * 400
+            doy = int((153 * (mo > 2 ? mo - 3 : mo + 9) + 2) / 5) + d - 1
+            doe = yoe * 365 + int(yoe / 4) - int(yoe / 100) + doy
+            days = era * 146097 + doe - 719468
+            return days * 86400 + h * 3600 + mi * 60 + s
+        }
+        function iso_to_epoch(ts) {
+            if (!match(ts, /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/)) return 0
+            return iso_to_epoch_utc(substr(ts,1,4)+0, substr(ts,6,2)+0, substr(ts,9,2)+0,
+                                    substr(ts,12,2)+0, substr(ts,15,2)+0, substr(ts,18,2)+0)
+        }
+        NF >= 4 {
+            ts = $1; agent = $2; state = $3; task = $4
+            if (task == "-" || task == "") next
+            key = agent "\x1f" task
+            ep = iso_to_epoch(ts)
+            if (state == "start")   { START[key] = ep; AGENT_OF[key] = agent }
+            else if (state == "done" || state == "failed") { DONE[key] = ep }
+        }
+        END {
+            # Materialize spans (start [→ done | now]) keyed by agent.
+            for (k in START) {
+                a = AGENT_OF[k]
+                s = START[k]
+                d = (k in DONE) ? DONE[k] : NOW + 0
+                SPAN_N++
+                SPAN_A[SPAN_N] = a
+                SPAN_S[SPAN_N] = s
+                SPAN_D[SPAN_N] = d
+            }
+            for (i = 1; i <= SPAN_N; i++) {
+                for (j = i + 1; j <= SPAN_N; j++) {
+                    if (SPAN_A[i] == SPAN_A[j]) continue
+                    if (SPAN_S[i] < SPAN_D[j] && SPAN_S[j] < SPAN_D[i]) {
+                        print 1; exit
+                    }
+                }
+            }
+            print 0
+        }
+    ' "$log"
+}
+
+# Visible-length pad: prints `$1` followed by enough spaces to reach
+# visible width `$2`, counting SGR escapes as zero-width. Used for the
+# deleted-row column where the name may be wrapped in strike/fade
+# codes but must still align its trailing separator with non-deleted
+# rows. Pure awk — portable across bash 3.2 + BSD awk.
+visible_pad() {
+    local s="$1" width="$2"
+    awk -v s="$s" -v w="$width" '
+        function visible_len(t,   stripped) {
+            stripped = t
+            gsub(/\033\[[0-9;]*m/, "", stripped)
+            return length(stripped)
+        }
+        BEGIN {
+            vl = visible_len(s)
+            pad = w - vl
+            if (pad < 0) pad = 0
+            printf "%s", s
+            for (i = 0; i < pad; i++) printf " "
+        }
+    '
+}
+
+# ── Ledger mode ────────────────────────────────────────────────────
+
+# Emits tab-separated records: status\tname\tdone\ttotal\telapsed
+scan_dir() {
+    local base="$1" force_archive="$2"
+    [ -d "$base" ] || return 0
+    local d name yaml status tasks log counts done total first_ts total_s elapsed_str now
+    now="${OPSX_NOW:-$(date -u +%s)}"
+    for d in "$base"/*/; do
+        [ -d "$d" ] || continue
+        name="$(basename "$d")"
+        yaml="${d}.opsx.yaml"
+        tasks="${d}tasks.md"
+        log="${d}activity.log"
+        if [ -f "$yaml" ]; then
+            status="$(yaml_val "$yaml" status)"
+        else
+            status=""
+        fi
+        [ -z "$status" ] && status="draft"
+        [ "$force_archive" = "1" ] && status="archived"
+
+        counts="$(count_tasks "$tasks")"
+        done="${counts% *}"
+        total="${counts#* }"
+
+        elapsed_str=""
+        first_ts="$(first_log_ts "$log")"
+        if [ -n "$first_ts" ]; then
+            total_s=$(( now - $(iso_to_epoch "$first_ts") ))
+            [ "$total_s" -lt 0 ] && total_s=0
+            elapsed_str="$(elapsed "$total_s")"
+        fi
+
+        printf '%s\t%s\t%s\t%s\t%s\n' "$status" "$name" "$done" "$total" "$elapsed_str"
+    done
+}
+
+render_ledger() {
+    local records tmp
+    records="$(scan_dir "$ROOT/opsx/changes" 0)"
+    if [ "$INCLUDE_ARCHIVE" = "1" ]; then
+        tmp="$(scan_dir "$ROOT/opsx/archive" 1)"
+        [ -n "$tmp" ] && records="$records
+$tmp"
+    fi
+
+    # Strip empty lines (scan_dir can emit blanks when a base is empty)
+    records="$(printf '%s\n' "$records" | awk 'NF')"
+
+    if [ -z "$records" ]; then
+        printf '\n  %sno changes found%s\n\n' "$DIM" "$RST"
+        return 0
+    fi
+
+    echo
+
+    # Dynamically size the name column to the longest visible name,
+    # so progress bars align in the same column regardless of length.
+    local name_pad
+    name_pad="$(printf '%s\n' "$records" | awk -F'\t' '
+        { if (length($2) > m) m = length($2) }
+        END { print (m ? m : 32) + 2 }
+    ')"
+
+    local s first=1
+    for s in active in-progress draft completed verified archived deleted; do
+        if [ -n "$ONLY_STATUS" ] && [ "$ONLY_STATUS" != "$s" ]; then
+            continue
+        fi
+        # deleted is only shown when --archive (or explicitly via --only deleted)
+        if [ "$s" = "deleted" ] && [ "$INCLUDE_ARCHIVE" != "1" ] \
+           && [ "$ONLY_STATUS" != "deleted" ]; then
+            continue
+        fi
+        local matches
+        matches="$(printf '%s\n' "$records" | awk -F'\t' -v s="$s" '$1==s')"
+        [ -z "$matches" ] && continue
+
+        if [ "$first" = "1" ]; then
+            first=0
+        else
+            echo
+        fi
+
+        local row status name done total el badge bar_str name_col strike strike_off
+        while IFS=$'\t' read -r status name done total el; do
+            [ -z "$status" ] && continue
+            badge="$(badge_for_status "$status")"
+            if [ "$status" = "deleted" ]; then
+                name_col="$C_FADED"
+                strike="$STRIKE"
+                strike_off="$STRIKE_OFF"
+                bar_str="─── dropped ───"
+                # Deleted rows wrap the name in SGR (fade + strike).
+                # `%-*s` counts SGR escapes as printable chars, so we
+                # pad via the visible_pad helper, which strips SGR
+                # before computing the trailing space count.
+                local deleted_field
+                deleted_field="$(visible_pad "${name_col}${strike}${name}${strike_off}${RST}" "$name_pad")"
+                printf '  %s  %s  %s%s%s\n' \
+                    "$badge" "$deleted_field" "$DIM" "$bar_str" "$RST"
+            else
+                bar_str="$(bar "$done" "$total")"
+                if [ -n "$el" ]; then
+                    printf '  %s  %-*s  %s   %s%s%s\n' \
+                        "$badge" "$name_pad" "$name" "$bar_str" \
+                        "$DIM" "$el" "$RST"
+                else
+                    printf '  %s  %-*s  %s\n' \
+                        "$badge" "$name_pad" "$name" "$bar_str"
+                fi
+            fi
+        done <<EOF
+$matches
+EOF
+    done
+    echo
+}
+
+# ── Tree-mode header banner ─────────────────────────────────────────
+#
+# Renders the single status line above a tree: `<badge>  <name>  <bar>
+# <elapsed>  <parallel-tag>`. The raw string is run through an awk
+# helper that strips SGR escapes to measure visible width and, when
+# the terminal is narrower than the fully-rendered banner, truncates
+# the change name with an ellipsis while preserving the SGR-bracketed
+# segments around it. The `SIGWINCH` trap in `follow_tree` forces a
+# full repaint, so width changes take effect on the next tick.
+
+# Visible (SGR-stripped) character count of a string, counting Unicode
+# codepoints rather than bytes so multi-byte bar cells (░ █ ─) count
+# as one column each. Uses `wc -m` which respects the active locale —
+# the surrounding shell forces `LC_ALL` for any caller that strips it.
+visible_chars() {
+    local stripped
+    stripped="$(printf '%s' "$1" | LC_ALL=en_US.UTF-8 awk '{ gsub(/\033\[[0-9;]*m/, ""); printf "%s", $0 }')"
+    printf '%s' "$stripped" | LC_ALL=en_US.UTF-8 wc -m | tr -d ' '
+}
+
+render_header() {
+    local badge="$1" change="$2" bar_str="$3" elapsed="$4" parallel_tag="$5"
+    local cols
+    cols="${COLUMNS:-$(tput cols 2>/dev/null || echo 120)}"
+    if [ -z "$cols" ] || [ "$cols" -lt 20 ]; then cols=80; fi
+
+    local badge_w bar_w elapsed_w par_w name_w
+    badge_w="$(visible_chars "$badge")"
+    bar_w="$(visible_chars "$bar_str")"
+    elapsed_w="$(visible_chars "$elapsed")"
+    par_w="$(visible_chars "$parallel_tag")"
+    name_w=${#change}
+
+    # Layout: `  BADGE  NAME  BAR   ELAPSED  PARALLEL` — literal spaces
+    # sum to 9 when elapsed is non-empty (2+2+2+3), else 6 (2+2+2).
+    local spaces=6
+    [ -n "$elapsed" ] && spaces=9
+    local total=$(( 2 + badge_w + 2 + name_w + 2 + bar_w + spaces - 6 + elapsed_w + par_w ))
+    if [ "$total" -le "$cols" ]; then
+        if [ -n "$elapsed" ]; then
+            printf '  %s  %s  %s   %s%s%s%s\n' \
+                "$badge" "$change" "$bar_str" "$DIM" "$elapsed" "$RST" "$parallel_tag"
+        else
+            printf '  %s  %s  %s%s\n' "$badge" "$change" "$bar_str" "$parallel_tag"
+        fi
+        return
+    fi
+    # Truncate the name to fit; keep `…` as the final visible glyph.
+    local budget=$(( cols - (2 + badge_w + 2 + 2 + bar_w + spaces - 6 + elapsed_w + par_w) ))
+    if [ "$budget" -lt 4 ]; then budget=4; fi
+    local trunc="$change"
+    if [ "${#trunc}" -gt "$budget" ]; then
+        trunc="${change:0:$((budget - 1))}…"
+    fi
+    if [ -n "$elapsed" ]; then
+        printf '  %s  %s  %s   %s%s%s%s\n' \
+            "$badge" "$trunc" "$bar_str" "$DIM" "$elapsed" "$RST" "$parallel_tag"
+    else
+        printf '  %s  %s  %s%s\n' "$badge" "$trunc" "$bar_str" "$parallel_tag"
+    fi
+}
+
+# ── Tree mode ──────────────────────────────────────────────────────
+#
+# Tree rendering and follow-mode diffing live entirely on the Kotlin
+# side (`zone.clanker.opsx.task.StatusTask` + `WatchTask`, plus
+# `activity.StatusTreeRenderer`/`TimelineRenderer`). This shell
+# script no longer parses `activity.log` or owns a row/tree
+# renderer — the entry-point at the bottom of the file delegates
+# tree + follow modes to `./gradlew opsx-status` and
+# `./gradlew opsx-watch --follow` respectively.
+
+# ── Last-status tee ────────────────────────────────────────────────
+#
+# After a render, write an ANSI-stripped copy of the frame to
+# `$OPSX_ROOT/.opsx/last-status.txt` via atomic `mktemp + mv`. This
+# is a fallback channel for AI CLIs that truncate tool stdout —
+# they can read the file directly. `--tee` forces on, `--no-tee`
+# forces off; in `auto` we only tee when stdout is a tty (so
+# `opsx-status | cat` in a pipeline does not silently create state).
+
+should_tee() {
+    case "$TEE_MODE" in
+        force) return 0 ;;
+        off)   return 1 ;;
+        auto)
+            if [ -t 1 ]; then return 0; else return 1; fi
+            ;;
+    esac
+}
+
+# Atomic ANSI-stripped write. Silent on failure — tee is a best-effort
+# side channel and must never break the primary render.
+write_last_status() {
+    local content="$1"
+    local dir="$ROOT/.opsx"
+    local target="$dir/last-status.txt"
+    local tmp
+    mkdir -p "$dir" 2>/dev/null || return 0
+    tmp="$(mktemp "$dir/.last-status.XXXXXX" 2>/dev/null)" || return 0
+    printf '%s' "$content" \
+        | awk '{ gsub(/\033\[[0-9;]*m/, ""); print }' \
+        > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 0; }
+    mv -f "$tmp" "$target" 2>/dev/null || rm -f "$tmp"
+}
+
+# ── Entry point ────────────────────────────────────────────────────
+
+if [ -n "$CHANGE" ]; then
+    # Tree mode is served entirely by the Kotlin StatusTask /
+    # WatchTask pipeline. The shell no longer parses activity.log or
+    # owns a row/tree renderer.
+    cmd=(./gradlew -q)
+    if [ "$FOLLOW" -eq 1 ]; then
+        cmd+=(opsx-watch --follow "-Pzone.clanker.opsx.watch.change=$CHANGE")
+    else
+        cmd+=(opsx-status "-Pzone.clanker.opsx.change=$CHANGE")
+    fi
+    if [ -n "$HOST_FILTER" ]; then
+        cmd+=(--host "$HOST_FILTER")
+    fi
+    cd "$ROOT"
+    exec "${cmd[@]}"
+else
+    if should_tee; then
+        rendered="$(render_ledger)"
+        printf '%s\n' "$rendered"
+        write_last_status "$rendered"
+    else
+        render_ledger
+    fi
+fi

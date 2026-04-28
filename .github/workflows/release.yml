@@ -1,48 +1,110 @@
 name: Release
 
 on:
-  release:
-    types: [published]
-
-permissions:
-  contents: write
+  push:
+    tags: ['v*']
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: macos-arm64
+          - os: macos-13
+            platform: macos-x64
+          - os: ubuntu-latest
+            platform: linux-x64
+
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure git for tests
-        run: |
-          git config --global user.name "CI"
-          git config --global user.email "ci@clanker.zone"
-          git config --global init.defaultBranch main
-
-      - name: Extract version from tag
-        id: version
-        run: |
-          VERSION="${{ github.event.release.tag_name }}"
-          VERSION="${VERSION#v}"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Publishing version: $VERSION"
-
       - uses: actions/setup-java@v4
         with:
-          distribution: jetbrains
+          distribution: temurin
           java-version: 17
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build and test
-        run: ./gradlew build -PVERSION_NAME=${{ steps.version.outputs.version }}
+      - name: Extract version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Publish to Maven Central
-        run: ./gradlew publishAndReleaseToMavenCentral -PVERSION_NAME=${{ steps.version.outputs.version }}
-        env:
-          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.SONATYPE_USERNAME }}
-          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.SONATYPE_PASSWORD }}
-          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_SIGNING_KEY }}
-          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.GPG_KEY_ID }}
-          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
-          ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
+      - name: Build + test
+        run: ./gradlew :cli:check -PVERSION_NAME=${{ steps.version.outputs.version }}
+
+      - name: Build distribution
+        run: ./gradlew :cli:jpackageImage -PVERSION_NAME=${{ steps.version.outputs.version }}
+
+      - name: Package tarball
+        run: |
+          cd cli/build/jpackage
+          tar czf opsx-${{ matrix.platform }}.tar.gz opsx*/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opsx-${{ matrix.platform }}
+          path: cli/build/jpackage/opsx-${{ matrix.platform }}.tar.gz
+
+  shadow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build fat JAR
+        run: ./gradlew :cli:shadowJar -PVERSION_NAME=${{ steps.version.outputs.version }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opsx-universal
+          path: cli/build/libs/cli-*-all.jar
+
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: ./gradlew :cli:check
+
+  release:
+    needs: [build, shadow, verify]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: cd dist && sha256sum * > SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

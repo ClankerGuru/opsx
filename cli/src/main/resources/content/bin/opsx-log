@@ -1,0 +1,307 @@
+#!/usr/bin/env bash
+#
+# opsx-log — append an event to the active change's activity.log AND
+# emit a colored stderr row so the event is visible in whatever
+# terminal invoked it.
+#
+# Usage:
+#     opsx-log <agent> <state> <task|-> <description...>
+#
+# Shared across every AI CLI (claude/copilot/codex/opencode). Skills
+# call this directly — no per-CLI hook required.
+#
+# File format (activity.log):
+#     <ISO8601-UTC> <agent> <state> <task|-> <description>
+#
+# Stderr row (design.md §10):
+#     →  @agent     <description padded to col 48>
+#     ✓  @agent     <description padded to col 48>  12s
+#     ✗  @agent     <description padded to col 48>  1m 02s
+#
+# Elapsed for done/failed pairs against the matching start marker in
+# <change>/.opsx-pending/<agent>.<task>.start.
+#
+# Active change is resolved from (in order):
+#     1. $OPSX_ACTIVE_CHANGE
+#     2. Most-recently-modified opsx/changes/*/.opsx.yaml whose
+#        status is NOT completed/verified/archived.
+#
+# The script always exits 0 on logging failures so it can never
+# block the caller.
+#
+# Compatible with bash 3.2 + BSD coreutils (macOS defaults).
+
+set -euo pipefail
+
+print_usage() {
+    cat <<'EOF'
+opsx-log — append an event to the active change's activity.log and emit a stderr status row.
+
+Usage:
+    opsx-log <agent> <state> <task|-> <description...>
+    opsx-log -h
+    opsx-log --help
+
+Environment:
+    OPSX_ACTIVE_CHANGE    Resolve the active change from opsx/changes/<name>.
+    OPSX_ROOT             Override the workspace root used to locate opsx/changes/.
+    OPSX_NOW              Override the current epoch seconds for deterministic timestamps.
+    OPSX_PENDING_TTL_SEC  Override stale .start sweep TTL in seconds (default: 86400).
+
+Examples:
+    opsx-log developer start m3n4o5p6q7 "Adding opsx-log help"
+    opsx-log developer done m3n4o5p6q7 "Help branch added"
+    OPSX_ACTIVE_CHANGE=opsx-flow-audit-and-polish \
+      opsx-log qa failed m3n4o5p6q7 "detekt failed"
+EOF
+}
+
+print_usage_stderr() {
+    print_usage >&2
+}
+
+if [ "$#" -eq 0 ]; then
+    exit 0
+fi
+
+case "${1:-}" in
+    -h|--help)
+        print_usage
+        exit 0
+        ;;
+    -*)
+        printf 'opsx-log: unknown flag %s\n' "$1" >&2
+        print_usage_stderr
+        exit 2
+        ;;
+esac
+
+if [ "$#" -lt 4 ]; then
+    printf 'opsx-log: expected <agent> <state> <task|-> <description...>\n' >&2
+    print_usage_stderr
+    exit 2
+fi
+
+AGENT=${1:-}
+STATE=${2:-}
+TASK=${3:--}
+shift 3
+DESC="$*"
+
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+WORKSPACE="${OPSX_ROOT:-$(cd "$SELF_DIR/../.." && pwd)}"
+
+# shellcheck source=./_opsx-style.sh
+. "$SELF_DIR/_opsx-style.sh"
+# shellcheck source=./_opsx-host.sh
+. "$SELF_DIR/_opsx-host.sh"
+
+# Resolve active change to an absolute directory path.
+#
+# Single filesystem pass: the winning .opsx.yaml's absolute parent
+# directory is captured verbatim and returned. The caller never
+# reconstructs the path from a basename — eliminates the TOCTOU
+# window where a rename/archive between scan and reconstruction
+# would silently redirect the write to a different directory.
+resolve_change_dir() {
+    if [ -n "${OPSX_ACTIVE_CHANGE:-}" ]; then
+        local direct="$WORKSPACE/opsx/changes/$OPSX_ACTIVE_CHANGE"
+        if [ -d "$direct" ]; then
+            printf '%s' "$direct"
+        fi
+        return
+    fi
+    local best_dir="" best_mtime=0
+    for yaml in "$WORKSPACE"/opsx/changes/*/.opsx.yaml; do
+        [ -f "$yaml" ] || continue
+        local status
+        # awk may fail on unreadable yaml; treat as empty status and skip below.
+        status=$(awk '/^status:/{sub(/^status:[ \t]*/,""); gsub(/["'"'"']/,""); print; exit}' "$yaml" 2>/dev/null || true)
+        case "$status" in
+            completed|verified|archived|deleted) continue ;;
+        esac
+        local mtime
+        mtime=$(stat -f %m "$yaml" 2>/dev/null || stat -c %Y "$yaml" 2>/dev/null || echo 0)
+        if [ "$mtime" -gt "$best_mtime" ]; then
+            best_mtime=$mtime
+            best_dir="$(dirname "$yaml")"
+        fi
+    done
+    printf '%s' "$best_dir"
+}
+
+CHANGE_DIR="$(resolve_change_dir)"
+if [ -z "$CHANGE_DIR" ]; then exit 0; fi
+if [ ! -d "$CHANGE_DIR" ]; then exit 0; fi
+CHANGE="$(basename "$CHANGE_DIR")"
+LOG="$CHANGE_DIR/activity.log"
+PENDING_DIR="$CHANGE_DIR/.opsx-pending"
+
+# Module-scope path for *this invocation's* pending marker. Set
+# only on the `start` branch below; cleaned up by the EXIT trap so
+# abnormal termination (SIGINT, `set -e` abort, user kill) cannot
+# orphan the marker. Concurrent invocations each track their own
+# path; the trap never touches anyone else's marker.
+SELF_PENDING_FILE=""
+cleanup_pending_marker() {
+    if [ -n "$SELF_PENDING_FILE" ]; then
+        rm -f "$SELF_PENDING_FILE" 2>/dev/null || true
+    fi
+}
+trap 'cleanup_pending_marker' EXIT
+
+if [ -n "${OPSX_NOW:-}" ]; then
+    NOW_EP="$OPSX_NOW"
+    # BSD (-r) then GNU (-d) fallback; tolerate both failing so logging never blocks the caller.
+    TS=$(date -u -r "$NOW_EP" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+      || date -u -d "@$NOW_EP" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+      || true)
+else
+    TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    NOW_EP=$(date -u +%s)
+fi
+
+# Append log line (never fail). Trailing `host=<name>` field lets
+# opsx-render / opsx-status filter by the CLI that produced the row.
+# Legacy rows without the field are treated as `host=unknown` by readers.
+printf '%s %s %s %s %s host=%s\n' "$TS" "$AGENT" "$STATE" "$TASK" "$DESC" "${OPSX_HOST:-unknown}" >> "$LOG" 2>/dev/null || true
+
+# Elapsed handling (pairs start/done via pending marker).
+ELAPSED=""
+PENDING_FILE="$PENDING_DIR/${AGENT}.${TASK}.start"
+mkdir -p "$PENDING_DIR" 2>/dev/null || true
+case "$STATE" in
+    start)
+        # Sweep stale .start markers before writing our own. TTL
+        # defaults to 24h; override with OPSX_PENDING_TTL_SEC. A
+        # stale marker is one whose mtime is older than TTL — its
+        # owning invocation died without logging done/failed, and
+        # the EXIT trap could not fire (SIGKILL, power loss, etc).
+        #
+        # Safe ordering: the sweep runs BEFORE this invocation's
+        # own marker is written, so there is no window in which we
+        # could delete our own file. The `|| true` guard ensures a
+        # sweep failure (permissions, race with another sweeper)
+        # never blocks the start event.
+        #
+        # B8 race fix — concurrent `opsx-log start` callers used to
+        # race between sweep and write: if a just-created peer
+        # marker landed on the wrong side of `find -mmin`'s coarse
+        # rounding, the sweeper would delete it before its owner
+        # could log `done`. Mitigations:
+        #
+        #   (a) a belt-and-braces 5-second floor — any marker
+        #       younger than OPSX_SWEEP_FLOOR_SEC (default 5) is
+        #       skipped even when it matches the `-mmin` filter;
+        #   (b) sweep + self-write wrapped in a short-lived `flock`
+        #       on `$PENDING_DIR/.lock` so two concurrent writers
+        #       cannot observe each other mid-sweep.
+        #
+        # `find -mmin` accepts fractional-minute semantics on both
+        # BSD (macOS) and GNU coreutils; integer minutes suffice
+        # here because the default TTL is 1440 min.
+        OPSX_PENDING_TTL_SEC_VAL="${OPSX_PENDING_TTL_SEC:-86400}"
+        TTL_MIN=$(( OPSX_PENDING_TTL_SEC_VAL / 60 ))
+        if [ "$TTL_MIN" -lt 1 ]; then TTL_MIN=1; fi
+        SWEEP_FLOOR_SEC="${OPSX_SWEEP_FLOOR_SEC:-5}"
+        run_sweep_and_write() {
+            if [ -d "$PENDING_DIR" ]; then
+                {
+                    while IFS= read -r stale; do
+                        [ -n "$stale" ] || continue
+                        # Belt-and-braces floor: skip anything
+                        # whose mtime is within the last N seconds,
+                        # regardless of what `-mmin` thinks.
+                        stale_mtime=$(stat -f %m "$stale" 2>/dev/null || stat -c %Y "$stale" 2>/dev/null || echo "$NOW_EP")
+                        age_s=$(( NOW_EP - stale_mtime ))
+                        if [ "$age_s" -lt "$SWEEP_FLOOR_SEC" ]; then continue; fi
+                        printf 'opsx-log: swept stale pending marker %s\n' "$(basename "$stale")" >&2 || true
+                        rm -f "$stale" 2>/dev/null || true
+                    done < <(find "$PENDING_DIR" -maxdepth 1 -type f -name '*.start' -mmin "+$TTL_MIN" 2>/dev/null)
+                } || true
+            fi
+            printf '%s\n' "$NOW_EP" > "$PENDING_FILE" 2>/dev/null || true
+        }
+        # Double-bracket detection: if a marker already exists for
+        # this (agent, task) and its mtime is within
+        # OPSX_DOUBLE_BRACKET_WARN_SEC (default 3 s), warn that an
+        # outer `start` is being shadowed by an inner `start` with
+        # the same key. The marker is still overwritten — we do not
+        # block logging — but the warning lets the caller see that
+        # elapsed for the outer bracket will reset.
+        warn_if_double_bracket() {
+            if [ -f "$PENDING_FILE" ]; then
+                local warn_sec existing_mtime delta
+                warn_sec="${OPSX_DOUBLE_BRACKET_WARN_SEC:-3}"
+                existing_mtime=$(stat -f %m "$PENDING_FILE" 2>/dev/null || stat -c %Y "$PENDING_FILE" 2>/dev/null || echo "$NOW_EP")
+                delta=$(( NOW_EP - existing_mtime ))
+                if [ "$delta" -ge 0 ] && [ "$delta" -le "$warn_sec" ]; then
+                    printf '%sopsx-log: double-bracket start for %s/%s (previous start %ss ago — elapsed will reset)%s\n' \
+                        "${OPSX_STYLE_FG_WARN:-}" "$AGENT" "$TASK" "$delta" "${OPSX_STYLE_RESET:-}" >&2 || true
+                fi
+            fi
+        }
+        warn_if_double_bracket
+        SWEEP_LOCK="$PENDING_DIR/.lock"
+        if command -v flock >/dev/null 2>&1; then
+            (
+                flock -w 2 9 2>/dev/null || true
+                run_sweep_and_write
+            ) 9>"$SWEEP_LOCK" 2>/dev/null || run_sweep_and_write
+        else
+            run_sweep_and_write
+        fi
+        # Record the marker path so the EXIT trap can reap it if
+        # this invocation dies before the matching done/failed.
+        SELF_PENDING_FILE="$PENDING_FILE"
+        # Normal-path completion: the done/failed caller is a
+        # separate invocation that will clean up the marker. Clear
+        # our local ref so the trap becomes a no-op on success.
+        SELF_PENDING_FILE=""
+        ;;
+    done|failed)
+        if [ -f "$PENDING_FILE" ]; then
+            START_EP=$(cat "$PENDING_FILE" 2>/dev/null || echo "")
+            if [ -n "$START_EP" ]; then
+                DELTA=$((NOW_EP - START_EP))
+                if [ "$DELTA" -lt 0 ]; then DELTA=0; fi
+                ELAPSED="$(elapsed "$DELTA")"
+            fi
+            rm -f "$PENDING_FILE" 2>/dev/null || true
+        fi
+        ;;
+esac
+
+# Row emission (design.md §10):
+#   two leading spaces (to line up with status/tree indents)
+#   glyph (start=→ dim, done=✓ ok, failed=✗ red, other=· dim)
+#   two spaces
+#   colored @agent padded to width 12 so descriptions column-align
+#   description padded to column 48
+#   elapsed in dim (empty for start)
+#
+# Formatting lives in _opsx-style.sh:opsx_render_row so opsx-log
+# (live) and opsx-render (replay) cannot drift.
+ROW="$(opsx_render_row "$STATE" "$AGENT" "$DESC" "$ELAPSED")"$'\n'
+
+# Stderr emission via log_row — single canonical entry point shared
+# with any other caller that needs to print a row in the same format.
+# log_row already writes to stderr; failures never propagate.
+log_row "$STATE" "$AGENT" "$DESC" "$ELAPSED"
+
+# Tee the rendered row to .opsx/last-log.txt so hosts that truncate
+# or reformat stderr (Copilot's `● Agent` UI) still leave a pretty,
+# recoverable tree on disk. Failure must never fail the caller.
+LAST_LOG_DIR="$WORKSPACE/.opsx"
+LAST_LOG_FILE="$LAST_LOG_DIR/last-log.txt"
+{
+    mkdir -p "$LAST_LOG_DIR" 2>/dev/null || true
+    if command -v flock >/dev/null 2>&1; then
+        flock -n "$LAST_LOG_FILE" -c "printf '%s' \"\$1\" >> \"$LAST_LOG_FILE\"" _ "$ROW" 2>/dev/null || \
+            printf '%s' "$ROW" >> "$LAST_LOG_FILE" 2>/dev/null || true
+    else
+        printf '%s' "$ROW" >> "$LAST_LOG_FILE" 2>/dev/null || true
+    fi
+} || true
+
+exit 0
