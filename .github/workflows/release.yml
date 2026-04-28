@@ -12,8 +12,6 @@ jobs:
         include:
           - os: macos-14
             platform: macos-arm64
-          - os: macos-13
-            platform: macos-x64
           - os: ubuntu-latest
             platform: linux-x64
 
@@ -35,63 +33,23 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Build + test
-        run: ./gradlew :cli:check -PVERSION_NAME=${{ steps.version.outputs.version }}
+        run: ./gradlew check -PVERSION_NAME=${{ steps.version.outputs.version }}
 
       - name: Build distribution
-        run: ./gradlew :cli:jpackageImage -PVERSION_NAME=${{ steps.version.outputs.version }}
+        run: ./gradlew :app:installShadowDist -PVERSION_NAME=${{ steps.version.outputs.version }}
 
       - name: Package tarball
         run: |
-          cd cli/build/jpackage
-          tar czf opsx-${{ matrix.platform }}.tar.gz opsx*/
+          cd app/build/install/app-shadow
+          tar czf /tmp/opsx-${{ matrix.platform }}.tar.gz bin lib
 
       - uses: actions/upload-artifact@v4
         with:
           name: opsx-${{ matrix.platform }}
-          path: cli/build/jpackage/opsx-${{ matrix.platform }}.tar.gz
-
-  shadow:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - uses: gradle/actions/setup-gradle@v4
-
-      - name: Extract version
-        id: version
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Build fat JAR
-        run: ./gradlew :cli:shadowJar -PVERSION_NAME=${{ steps.version.outputs.version }}
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: opsx-universal
-          path: cli/build/libs/cli-*-all.jar
-
-  verify:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - uses: gradle/actions/setup-gradle@v4
-
-      - run: ./gradlew :cli:check
+          path: /tmp/opsx-${{ matrix.platform }}.tar.gz
 
   release:
-    needs: [build, shadow, verify]
+    needs: [build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
