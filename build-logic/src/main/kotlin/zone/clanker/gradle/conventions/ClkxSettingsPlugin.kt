@@ -6,7 +6,13 @@ import org.gradle.api.initialization.resolve.RepositoriesMode
 
 class ClkxSettingsPlugin : Plugin<Settings> {
     override fun apply(settings: Settings) {
-        settings.pluginManager.apply("org.gradle.toolchains.foojay-resolver-convention")
+
+        settings.pluginManagement {
+            repositories {
+                mavenCentral()
+                gradlePluginPortal()
+            }
+        }
 
         @Suppress("UnstableApiUsage")
         settings.dependencyResolutionManagement {

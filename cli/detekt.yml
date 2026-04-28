@@ -1,0 +1,19 @@
+build:
+  maxIssues: 0
+
+complexity:
+  LongMethod:
+    threshold: 80
+  LongParameterList:
+    functionThreshold: 8
+    constructorThreshold: 8
+  TooManyFunctions:
+    thresholdInClasses: 20
+
+style:
+  MagicNumber:
+    active: false
+  ReturnCount:
+    max: 4
+  MaxLineLength:
+    maxLineLength: 120

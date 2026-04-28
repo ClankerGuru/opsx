@@ -1,0 +1,188 @@
+{
+  "agents": {
+    "lead": {
+      "description": "Tech Lead. Coordinates change lifecycle — propose, apply, verify, archive.",
+      "color": "green",
+      "skills": [
+        "opsx-propose",
+        "opsx-apply",
+        "opsx-continue",
+        "opsx-verify",
+        "opsx-archive",
+        "opsx-bulk-archive",
+        "opsx-feedback",
+        "opsx-ff",
+        "opsx-onboard",
+        "opsx-explore",
+        "opsx-status",
+        "no-python",
+        "no-temp-scripts"
+      ]
+    },
+    "scout": {
+      "description": "Codebase Scout. Explores and maps code structure, dependencies, and blast radius.",
+      "color": "blue",
+      "skills": [
+        "srcx-context",
+        "srcx-clean",
+        "no-python",
+        "no-temp-scripts"
+      ]
+    },
+    "forge": {
+      "description": "Build Engineer. Manages Gradle builds, repos, branches, and PRs.",
+      "color": "yellow",
+      "skills": [
+        "gradle-composite-builds",
+        "git-workflow",
+        "gh-cli",
+        "wrkx",
+        "wrkx-clone",
+        "wrkx-pull",
+        "wrkx-checkout",
+        "wrkx-status",
+        "wrkx-prune",
+        "opsx-sync",
+        "no-python",
+        "no-temp-scripts"
+      ]
+    },
+    "developer": {
+      "description": "Kotlin/JVM Developer. Writes production code following project conventions.",
+      "color": "cyan",
+      "skills": [
+        "naming-conventions",
+        "package-structure",
+        "gradle-composite-builds",
+        "kotlin-lang",
+        "kotlin-functional-first",
+        "kotlin-dsl-builders",
+        "kotlin-multiplatform",
+        "kotlin-conventions",
+        "kotlinx-coroutines",
+        "coroutines-suspend-functions",
+        "coroutines-scopes",
+        "coroutines-context-dispatchers",
+        "coroutines-cancellation-exceptions",
+        "coroutines-shared-state",
+        "coroutines-channels-select",
+        "coroutines-flow",
+        "coroutines-stateflow-sharedflow",
+        "kotlinx-serialization",
+        "exposed",
+        "clikt",
+        "gradle",
+        "gradle-tasks",
+        "gradle-plugins-basics",
+        "gradle-custom-plugins",
+        "gradle-providers-properties",
+        "gradle-dependency-injection",
+        "gradle-init-scripts",
+        "kotlin-dsl",
+        "gradle-settings-plugin",
+        "gradle-build-conventions",
+        "ktlint",
+        "detekt",
+        "no-python",
+        "no-temp-scripts"
+      ]
+    },
+    "qa": {
+      "description": "QA Guru. Tests, reviews, enforces architecture rules. The most capable coder.",
+      "color": "magenta",
+      "skills": [
+        "naming-conventions",
+        "package-structure",
+        "gradle-composite-builds",
+        "konsist",
+        "kotlin-lang",
+        "kotlin-functional-first",
+        "kotlin-dsl-builders",
+        "kotlin-multiplatform",
+        "kotlin-conventions",
+        "kotlinx-coroutines",
+        "kotlinx-serialization",
+        "exposed",
+        "clikt",
+        "gradle",
+        "gradle-tasks",
+        "gradle-plugins-basics",
+        "gradle-custom-plugins",
+        "gradle-providers-properties",
+        "gradle-dependency-injection",
+        "gradle-init-scripts",
+        "kotlin-dsl",
+        "gradle-settings-plugin",
+        "gradle-build-conventions",
+        "ktlint",
+        "detekt",
+        "testing-patterns",
+        "kotest",
+        "kover",
+        "serialization-patterns",
+        "coroutines-suspend-functions",
+        "coroutines-scopes",
+        "coroutines-context-dispatchers",
+        "coroutines-cancellation-exceptions",
+        "coroutines-shared-state",
+        "coroutines-channels-select",
+        "coroutines-flow",
+        "coroutines-stateflow-sharedflow",
+        "no-python",
+        "no-temp-scripts"
+      ]
+    },
+    "architect": {
+      "description": "Application Architect. Designs solutions, defines boundaries, produces blueprints.",
+      "color": "orange",
+      "skills": [
+        "package-structure",
+        "naming-conventions",
+        "konsist",
+        "kotlin-functional-first",
+        "gradle-plugins-basics",
+        "gradle-custom-plugins",
+        "gradle-settings-plugin",
+        "no-python",
+        "no-temp-scripts"
+      ]
+    },
+    "devOps": {
+      "description": "DevOps. CI/CD pipelines, deployments, and infrastructure.",
+      "color": "red",
+      "skills": [
+        "github-actions",
+        "gh-cli",
+        "git-workflow",
+        "no-python",
+        "no-temp-scripts"
+      ]
+    }
+  },
+  "clis": {
+    "claude": {
+      "skillsDir": ".claude/skills",
+      "agentDir": ".claude/agents",
+      "instructionFile": "CLAUDE.md",
+      "frontmatter": "full"
+    },
+    "copilot": {
+      "skillsDir": ".github/skills",
+      "agentDir": ".github/agents",
+      "instructionFile": ".github/copilot-instructions.md",
+      "frontmatter": "basic"
+    },
+    "codex": {
+      "skillsDir": ".codex/skills",
+      "agentDir": ".codex/agents",
+      "instructionFile": "AGENTS.md",
+      "frontmatter": "basic"
+    },
+    "opencode": {
+      "skillsDir": ".opencode/skills",
+      "agentDir": ".opencode/agents",
+      "instructionFile": "AGENTS.md",
+      "frontmatter": "basic"
+    }
+  }
+}

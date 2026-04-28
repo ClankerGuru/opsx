@@ -103,6 +103,9 @@ style:
       - 'TODO:'
       - 'FIXME:'
       - 'HACK:'
+    # Allowed form: TODO(<tracker-id>): description
+    #   e.g. TODO(OPSX-42): refactor this once depends graph lands
+    # A bare TODO: (no tracker id) is rejected; a tracker id makes it owned.
     allowedPatterns: 'TODO\\(.*\\):'
   MagicNumber:
     active: true

@@ -19,7 +19,7 @@ dependencies {
 }
 
 val slopTask = tasks.register<Test>("slopTest") {
-    description = "Run slop taste tests — architecture, naming, boundaries, style"
+    description = "Run architecture tests — package boundaries, naming, style"
     group = "verification"
     testClassesDirs = slopTest.output.classesDirs
     classpath = slopTest.runtimeClasspath
