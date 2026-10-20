@@ -1,5 +1,6 @@
 plugins {
     `java-base`
+    idea
 }
 
 val sourceSets = the<SourceSetContainer>()
@@ -16,6 +17,13 @@ dependencies {
     "slopTestImplementation"("com.lemonappdev:konsist:0.17.3")
     "slopTestImplementation"("io.kotest:kotest-runner-junit5:5.9.1")
     "slopTestImplementation"("io.kotest:kotest-assertions-core:5.9.1")
+}
+
+idea {
+    module {
+        testSources.from(slopTest.allSource.sourceDirectories)
+        testResources.from(slopTest.resources.sourceDirectories)
+    }
 }
 
 val slopTask = tasks.register<Test>("slopTest") {
