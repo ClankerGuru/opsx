@@ -16,6 +16,8 @@ jobs:
             platform: linux-x64
 
     runs-on: ${{ matrix.os }}
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
 
@@ -26,17 +28,11 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Extract version
-        id: version
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
       - name: Build + test
-        run: ./gradlew check -PVERSION_NAME=${{ steps.version.outputs.version }}
+        run: ./gradlew check
 
       - name: Build distribution
-        run: ./gradlew :app:installShadowDist -PVERSION_NAME=${{ steps.version.outputs.version }}
+        run: ./gradlew :app:installShadowDist
 
       - name: Package tarball
         run: |

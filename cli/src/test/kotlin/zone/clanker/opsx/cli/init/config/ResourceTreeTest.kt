@@ -1,5 +1,6 @@
 package zone.clanker.opsx.cli.init.config
 
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
@@ -42,13 +43,21 @@ class ResourceTreeTest :
             result shouldBe emptyList()
         }
 
-        test("readText loads a specific skill") {
+        test("readText loads every bundled skill with well-formed front matter") {
             val tree = ResourceTree()
             val skills = tree.listNames("skills").filter { !it.startsWith("_") }
-            if (skills.isNotEmpty()) {
-                val content = runCatching { tree.readText("skills/${skills.first()}/SKILL.md") }
-                if (content.isSuccess) {
-                    content.getOrThrow().shouldContain("---")
+            skills.shouldNotBeEmpty()
+            skills.forEach { skill ->
+                withClue("skills/$skill/SKILL.md") {
+                    val lines = tree.readText("skills/$skill/SKILL.md").lines()
+                    lines.first() shouldBe "---"
+                    val closing = lines.drop(1).indexOf("---")
+                    (closing >= 0) shouldBe true
+                    val frontMatter = lines.subList(1, closing + 1)
+                    frontMatter.any { it.startsWith("name: ") && it.length > "name: ".length } shouldBe true
+                    frontMatter.any {
+                        it.startsWith("description: ") && it.length > "description: ".length
+                    } shouldBe true
                 }
             }
         }

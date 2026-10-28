@@ -1,8 +1,7 @@
 plugins {
+    id("zone.clanker.build.version")
     id("clkx-app")
 }
-
-version = providers.gradleProperty("VERSION_NAME").getOrElse("0.0.0-dev")
 
 val mainClassFqn = "zone.clanker.opsx.cli.MainKt"
 
