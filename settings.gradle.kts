@@ -1,5 +1,9 @@
 pluginManagement {
     includeBuild("build-logic") { name = "opsx-build-logic" }
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
 }
 
 plugins {

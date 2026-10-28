@@ -1,8 +1,7 @@
 plugins {
+    id("zone.clanker.build.version")
     id("clkx-cli")
 }
-
-version = providers.gradleProperty("VERSION_NAME").getOrElse("0.0.0-dev")
 
 val generateBuildConfig by tasks.registering {
     val outputDir = layout.buildDirectory.dir("generated/buildconfig")
