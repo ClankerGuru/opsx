@@ -1,4 +1,5 @@
 ---
+name: kotlinx-io
 description: "kotlinx-io multiplatform I/O — Buffer, Source, Sink, FileSystem, Path. Use instead of java.io.File."
 globs:
   - "**/*.kt"

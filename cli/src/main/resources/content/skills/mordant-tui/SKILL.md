@@ -1,4 +1,5 @@
 ---
+name: mordant-tui
 description: "Building TUI apps with Mordant 3.x and Clikt 5.x. Terminal, animations, widgets, layout, input, progress bars."
 globs:
   - "**/*.kt"

@@ -1,4 +1,5 @@
 ---
+name: okio
 description: "Okio I/O library by Square — the foundation kotlinx-io is based on. Reference for understanding kotlinx-io patterns."
 globs:
   - "**/*.kt"
